@@ -221,7 +221,7 @@ if uploaded_file is not None:
                 plt.plot(raw_values, label="Actual data")
                 plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
                 future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
-                plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="orange")
+                plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="red")
                 plt.xlabel("Month")
                 plt.ylabel("Case")
                 plt.title("Actual Data, Predictions, and Future Predictions")
