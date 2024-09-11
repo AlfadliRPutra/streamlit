@@ -1,71 +1,30 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
-# import matplotlib.pyplot as plt
-import sklearn
-from pandas import DataFrame
-from pandas import Series
-from pandas import concat
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM
-
-from sklearn.metrics import mean_squared_error
+import streamlit as st
+from forecast_functions import (
+    timeseries_to_supervised, difference, inverse_difference,
+    scale, invert_scale, fit_lstm, forecast_lstm,
+    toOneDimension, convertDimension
+)
 from math import sqrt
 
-# Fungsi untuk memproses data dan memprediksi
-def timeseries_to_supervised(data, lag=1):
-    df = DataFrame(data)
-    columns = [df.shift(i) for i in range(1, lag+1)]
-    columns.append(df)
-    df = concat(columns, axis=1)
-    df.fillna(0, inplace=True)
-    return df
+# Page configuration
+st.set_page_config(page_title="Forecast Dashboard", page_icon=":chart_with_upwards_trend:", layout="wide")
 
-def difference(dataset, interval=1):
-    diff = list()
-    for i in range(interval, len(dataset)):
-        value = dataset[i] - dataset[i - interval]
-        diff.append(value)
-    return Series(diff)
+# ---- FILE UPLOAD ----
+st.title(":file_folder: Upload Your Dataset for Forecasting")
+uploaded_file = st.file_uploader("Choose a file", type=["csv"])
 
-def inverse_difference(history, yhat, interval=1):
-    return yhat + history[-interval]
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file, usecols=[0])
+    st.success("File uploaded and data loaded successfully!")
 
-def scale(train):
-    scaler = MinMaxScaler(feature_range=(-1, 1))
-    scaler = scaler.fit(train)
-    train = train.reshape(train.shape[0], train.shape[1])
-    train_scaled = scaler.transform(train)
-    return scaler, train_scaled
+    # Display a sample of the uploaded dataset
+    st.write("### Dataset Preview")
+    st.write(df.head())
 
-def invert_scale(scaler, X, value):
-    new_row = [x for x in X] + [value[0]] 
-    array = np.array(new_row)
-    array = array.reshape(1, len(array))
-    inverted = scaler.inverse_transform(array)
-    return inverted[0, -1]
-
-def fit_lstm(train, batch_size, nb_epoch, neurons):
-    X, y = train[:, 0:-1], train[:, -1]
-    X = X.reshape(X.shape[0], 1, X.shape[1])
-
-    model = Sequential()
-    model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2])))  
-    model.add(Dense(1))
-
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    model.fit(X, y, epochs=nb_epoch, batch_size=batch_size, verbose=1, shuffle=False)
-
-    return model
-
-def forecast_lstm(model, batch_size, X):
-    X = X.reshape(1, 1, len(X))
-    yhat = model.predict(X, batch_size=batch_size)
-    return yhat[0,0]
-
-def process_data(file):
-    series = pd.read_csv(file, usecols=[0], engine='python')
+    # Forecasting logic
+    series = df
     raw_values = series.values
     diff_values = difference(raw_values, 1)
     supervised = timeseries_to_supervised(diff_values, 1)
@@ -74,67 +33,54 @@ def process_data(file):
     scaler, train_scaled = scale(train)
     lstm_model = fit_lstm(train_scaled, 1, 100, 5)
 
+    # Forecast the entire training dataset
     train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
-    hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
-    predictions = list()
-    tmpPredictions = list()
+    predictions = []
     for i in range(len(train_scaled)):
         X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
         yhat = forecast_lstm(lstm_model, 1, X)
-        tmpPredictions.append(yhat)
         yhat = invert_scale(scaler, X, yhat)
         yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
         predictions.append(yhat)
-        expected = raw_values[i+1 ]
 
-    rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
-    
-    futureMonth = 6
-    lastPredict = tmpPredictions[-1:]
-    lastPredict = np.asarray(lastPredict)
-    lastPredict = np.reshape(lastPredict, (lastPredict.shape[0], 1, lastPredict.shape[0]))
+    # Report performance
+    rmse = sqrt(mean_squared_error(raw_values[0:len(predictions)], predictions))
+    st.write(f"Test RMSE: {rmse:.3f}")
+
+    # Forecast future months
+    futureMonth = st.slider("Select number of future months to predict:", min_value=1, max_value=12, value=6)
+    model_predict = lstm_model
+    lastPredict = train_scaled[-1, 0:-1]
     futureArray = []
     for i in range(futureMonth):
-        lastPredict = lstm_model.predict(lastPredict)
+        lastPredict = model_predict.predict(lastPredict.reshape(1, 1, -1))
         futureArray.append(lastPredict)
-        lastPredict = np.reshape(lastPredict, (lastPredict.shape[0], 1, lastPredict.shape[0]))
+        lastPredict = convertDimension(lastPredict)
 
-    newFutureData = np.reshape(futureArray, (-1,1))
+    # Before denormalize
+    newFutureData = np.reshape(futureArray, (-1, 1))
+    future_predictions_df = pd.DataFrame(newFutureData, columns=['Future Prediction Result (Before Invert Scaling)'])
+
+    # Change dimension and invert scaling
+    newFuture = np.reshape(newFutureData, (-1, 1))
     dataHasilPrediksi = []
     for i in range(len(newFutureData)):
         tmpResult = invert_scale(scaler, [0], newFutureData[i])
         tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
         dataHasilPrediksi.append(tmpResult)
-    
-    return {
-        'data': series,
-        'predictions': predictions,
-        'future_predictions': dataHasilPrediksi,
-        'rmse': rmse
-    }
 
-# Streamlit app
-st.title("Time Series Forecasting with LSTM")
+    # Display future predictions
+    st.write("### Future Predictions")
+    future_predictions_df = pd.DataFrame(dataHasilPrediksi, columns=['Future Prediction Result (After Invert Scaling)'])
+    st.write(future_predictions_df)
 
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv", "xls", "xlsx"])
-
-if uploaded_file is not None:
-    with st.spinner("Processing..."):
-        result = process_data(uploaded_file)
-
-        st.sidebar.header("Navigation")
-        selection = st.sidebar.radio("Select View", ["Dataset", "Forecast"])
-
-        if selection == "Dataset":
-            st.subheader("Dataset Overview")
-            st.write(result['data'].head(20))
-            
-            st.subheader("Line Chart of Dataset")
-            st.line_chart(result['data'])
-
-        elif selection == "Forecast":
-            st.subheader("Forecast Results")
-            st.write(f"Test RMSE: {result['rmse']:.3f}")
-
-            st.subheader("Future Predictions")
-            st.line_chart(result['future_predictions'])
+    # Plot results
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(len(raw_values)), raw_values, label='Actual')
+    plt.plot(range(len(raw_values), len(raw_values) + len(dataHasilPrediksi)), dataHasilPrediksi, label='Forecasted', linestyle='--')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.title('Forecast vs Actual')
+    plt.legend()
+    st.pyplot(plt)
