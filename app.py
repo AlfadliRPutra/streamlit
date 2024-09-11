@@ -171,14 +171,12 @@ if uploaded_file is not None:
                     yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
                     predictions.append(yhat)
                 
-                # Ensure predictions align with raw values
-                predictions = np.array(predictions)
-                if len(predictions) < len(raw_values):
-                    padding = [None] * (len(raw_values) - len(predictions))
-                    predictions = np.concatenate([predictions, padding])
+                # Convert predictions to a pandas DataFrame and fill missing values
+                predictions = pd.Series(predictions).fillna(method='ffill').fillna(method='bfill')
+                raw_values = pd.Series(raw_values).fillna(method='ffill').fillna(method='bfill')
             
                 # Prepare future predictions
-                lastPredict = np.array([predictions[-1]])
+                lastPredict = np.array([predictions.values[-1]])
                 lastPredict = toOneDimension(lastPredict)
                 lastPredict = convertDimension(lastPredict)
             
@@ -210,14 +208,13 @@ if uploaded_file is not None:
                 
                 st.subheader("Actual and Predicted Data")
                 st.line_chart(pd.DataFrame({
-                    'Actual Data': np.concatenate([raw_values, [None] * len(futureArray)]),
-                    'Predicted Data': predictions
-                }), use_container_width=True)
+                    'Actual Data': np.concatenate([raw_values.values, [None] * len(futureArray)]),
+                    'Predicted Data': predictions.values
+                }).fillna(method='ffill').fillna(method='bfill'), use_container_width=True)
                 
                 st.subheader("Future Predictions")
                 st.line_chart(data_for_plotting, use_container_width=True)
             else:
                 st.write("Failed to load model.")
-
         else:
             st.write("Model not available.")
