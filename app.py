@@ -163,72 +163,55 @@ if uploaded_file is not None:
                 hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
                 
                 # Walk-forward validation
-                predictions = list()
-                tmpPredictions = list()
+                predictions = []
                 for i in range(len(train_scaled)):
                     X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
                     yhat = forecast_lstm(lstm_model, 1, X)
-                    tmpPredictions.append(yhat)
                     yhat = invert_scale(scaler, X, yhat)
                     yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
-                    
-                    # Ensure yhat is a scalar
-                    yhat = yhat if np.issubdtype(type(yhat), np.number) else yhat.item()
-                    
                     predictions.append(yhat)
                 
+                # Ensure predictions align with raw values
+                predictions = np.array(predictions)
+                if len(predictions) < len(raw_values):
+                    padding = [None] * (len(raw_values) - len(predictions))
+                    predictions = np.concatenate([predictions, padding])
+            
                 # Prepare future predictions
-                lastPredict = tmpPredictions[-1:]
+                lastPredict = np.array([predictions[-1]])
                 lastPredict = toOneDimension(lastPredict)
                 lastPredict = convertDimension(lastPredict)
             
-                futureMonth = 6  # Predict for 6 months
-            
+                futureMonth = 6
                 futureArray = []
                 for i in range(futureMonth):
                     lastPredict = lstm_model.predict(lastPredict)
-                    futureArray.append(lastPredict)
+                    futureArray.append(lastPredict.flatten())
                     lastPredict = convertDimension(lastPredict)
-            
-                # Before denormalize
-                newFutureData = np.reshape(futureArray, (-1, 1))
-                newFuture = np.reshape(newFutureData, (-1, 1))
-            
-                dataHasilPrediksi = []
-                for i in range(len(newFutureData)):
-                    tmpResult = invert_scale(scaler, [0], newFutureData[i])
-                    tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
-                    dataHasilPrediksi.append(tmpResult)
-            
-                # Convert predictions and future data for Streamlit
-                predictions_index = np.arange(len(predictions))
-                future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
-            
-                # Ensure all arrays are the same length
-                actual_data_length = len(raw_values)
-                prediction_data_length = len(predictions) + len(dataHasilPrediksi)
                 
-                if prediction_data_length > actual_data_length:
-                    padding = [None] * (prediction_data_length - actual_data_length)
-                    raw_values = np.concatenate([raw_values, padding])
+                futureArray = np.array(futureArray).flatten()
+                futureIndex = np.arange(len(predictions), len(predictions) + len(futureArray))
                 
-                # Create DataFrames for Streamlit charts
-                predictions_df = pd.DataFrame({
-                    'Month': np.concatenate([predictions_index, future_index]),
-                    'Values': np.concatenate([predictions, dataHasilPrediksi])
+                # Combine actual, predictions, and future predictions
+                full_index = np.arange(len(raw_values) + len(futureArray))
+                full_values = np.concatenate([raw_values, futureArray])
+                
+                data_for_plotting = pd.DataFrame({
+                    'Month': full_index,
+                    'Values': full_values
                 }).set_index('Month')
-            
-                st.subheader("Predicted vs. Actual Data")
+                
+                st.subheader("Actual and Predicted Data")
                 st.line_chart(pd.DataFrame({
-                    'Actual Data': raw_values[:len(predictions)],
-                    'Predicted Data': np.concatenate([predictions, [None]*len(dataHasilPrediksi)])
-                }))
-            
+                    'Actual Data': np.concatenate([raw_values, [None] * len(futureArray)]),
+                    'Predicted Data': predictions
+                }), use_container_width=True)
+                
                 st.subheader("Future Predictions")
-                st.line_chart(predictions_df, use_container_width=True)
-            
+                st.line_chart(data_for_plotting, use_container_width=True)
             else:
                 st.write("Failed to load model.")
+
 
         else:
             st.write("Model not available.")
