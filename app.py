@@ -175,6 +175,10 @@ if uploaded_file is not None:
                     expected = raw_values[i+1 ]
                     st.write(f'Month={i+1}, Predicted={yhat:.2f}, Expected={expected:.2f}')
                 
+                # Flatten arrays before plotting
+                raw_values = raw_values.flatten()
+                predictions = np.array(predictions).flatten()
+                
                 # Report performance
                 rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
                 st.write(f'Test RMSE: {rmse:.3f}')
@@ -188,46 +192,46 @@ if uploaded_file is not None:
                 plt.title("Real vs Predict")
                 plt.legend()
                 st.pyplot(plt)
-
+                
                 # Prepare future predictions
                 lastPredict = tmpPredictions[-1:]
                 lastPredict = toOneDimension(lastPredict)
                 lastPredict = convertDimension(lastPredict)
-
+            
                 futureMonth = 6  # Predict for 6 months
-
+            
                 futureArray = []
                 for i in range(futureMonth):
                     lastPredict = lstm_model.predict(lastPredict)
                     futureArray.append(lastPredict)
                     lastPredict = convertDimension(lastPredict)
-
+            
                 # Before denormalize
                 newFutureData = np.reshape(futureArray, (-1, 1))
                 newFuture = np.reshape(newFutureData, (-1, 1))
-
+            
                 dataHasilPrediksi = []
                 for i in range(len(newFutureData)):
                     tmpResult = invert_scale(scaler, [0], newFutureData[i])
                     tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
                     dataHasilPrediksi.append(tmpResult)
                     st.write(f"Month {i+1} : {tmpResult:.2f}")
-
+            
                 # Display the final predictions
                 st.write("Future Predictions after Denormalization:")
                 future_predictions_df = pd.DataFrame(dataHasilPrediksi, columns=['Future Prediction Result (After Invert Scaling)'])
                 st.write(future_predictions_df)
-
+            
                 # Show predict result
                 plt.plot(dataHasilPrediksi)
                 plt.title("Future Predictions")
                 st.pyplot(plt)
-
+            
                 # Generate continuous future prediction line
                 newFutureLine = [None] * len(raw_values)
                 for i in range(len(dataHasilPrediksi)):
                     newFutureLine.append(dataHasilPrediksi[i])
-
+            
                 # Create comparison graphic
                 plt.figure(figsize=(15, 10))
                 plt.plot(raw_values, label="Actual data")
@@ -238,8 +242,8 @@ if uploaded_file is not None:
                 plt.title("Actual Data vs. Past Predictions and Future Predictions")
                 plt.legend()
                 st.pyplot(plt)
-
             else:
                 st.write("Failed to load model.")
+
         else:
             st.write("Model not available.")
