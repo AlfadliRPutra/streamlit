@@ -37,12 +37,24 @@ def scale(train):
     train_scaled = scaler.transform(train)
     return scaler, train_scaled
 
+# def invert_scale(scaler, X, value):
+#     new_row = [x for x in X] + [value[0]]  
+#     array = np.array(new_row)
+#     array = array.reshape(1, len(array))
+#     inverted = scaler.inverse_transform(array)
+#     return inverted[0, -1]
+
 def invert_scale(scaler, X, value):
-    new_row = [x for x in X] + [value[0]]  
-    array = np.array(new_row)
-    array = array.reshape(1, len(array))
-    inverted = scaler.inverse_transform(array)
+    # Pastikan value adalah array numpy
+    if np.isscalar(value):
+        value = np.array([value])
+    
+    new_row = np.array([x for x in X] + [value[0]])
+    new_row = new_row.reshape(1, -1)
+    
+    inverted = scaler.inverse_transform(new_row)
     return inverted[0, -1]
+
 
 def fit_lstm(train, batch_size, nb_epoch, neurons):
     X, y = train[:, 0:-1], train[:, -1]
