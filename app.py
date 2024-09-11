@@ -8,6 +8,8 @@ from tensorflow.keras.layers import Dense, LSTM
 from sklearn.metrics import mean_squared_error
 from math import sqrt
 from pandas import DataFrame, Series, concat
+import tensorflow as tf
+import os
 
 # Fungsi yang sudah ada
 def timeseries_to_supervised(data, lag=1):
@@ -47,10 +49,11 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
     X = X.reshape(X.shape[0], 1, X.shape[1])
 
     model = Sequential()
-    model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2]))) 
+    model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2])))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam')
     model.fit(X, y, epochs=nb_epoch, batch_size=batch_size, verbose=1, shuffle=False)
+
     return model
 
 def forecast_lstm(model, batch_size, X):
@@ -64,65 +67,44 @@ def toOneDimension(value):
 def convertDimension(value):
     return np.reshape(value, (value.shape[0], 1, value.shape[0]))
 
-# Fungsi untuk memproses data
-def process_data(file):
+# Fungsi untuk memproses data dan model
+def process_and_save_model(file):
+    # Load dataset
     series = pd.read_csv(file, usecols=[0], engine='python')
+
+    # Transform data
     raw_values = series.values
     diff_values = difference(raw_values, 1)
     supervised = timeseries_to_supervised(diff_values, 1)
     supervised_values = supervised.values
+
+    # Split data into train
     train = supervised_values[0:]
+
+    # Transform the scale of the data
     scaler, train_scaled = scale(train)
+
+    # Fit the model
     lstm_model = fit_lstm(train_scaled, 1, 100, 5)
 
-    train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
-    hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
-    predictions = list()
-    tmpPredictions = list()
-    for i in range(len(train_scaled)):
-        X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
-        yhat = forecast_lstm(lstm_model, 1, X)
-        tmpPredictions.append(yhat)
-        yhat = invert_scale(scaler, X, yhat)
-        yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
-        predictions.append(yhat)
-        expected = raw_values[i+1 ]
-
-    rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
-
-    futureMonth = 6
-    lastPredict = tmpPredictions[-1:]
-    lastPredict = toOneDimension(lastPredict)
-    lastPredict = convertDimension(lastPredict)
-    futureArray = []
-    for i in range(futureMonth):
-        lastPredict = lstm_model.predict(lastPredict)
-        futureArray.append(lastPredict)
-        lastPredict = convertDimension(lastPredict)
-
-    newFutureData = np.reshape(futureArray, (-1,1))
-    dataHasilPrediksi = []
-    for i in range(len(newFutureData)):
-        tmpResult = invert_scale(scaler, [0], newFutureData[i])
-        tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
-        dataHasilPrediksi.append(tmpResult)
+    # Save the model
+    model_path = 'lstm_model.h5'
+    lstm_model.save(model_path)
 
     return {
         'data': series,
-        'predictions': predictions,
-        'future_predictions': dataHasilPrediksi,
-        'rmse': rmse
+        'model_path': model_path
     }
 
-# Aplikasi Streamlit
+# Streamlit app
 st.title("Time Series Forecasting with LSTM")
 
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv", "xls", "xlsx"])
+uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file is not None:
     st.write("File uploaded successfully!")
-    with st.spinner("Processing..."):
-        result = process_data(uploaded_file)
+    with st.spinner("Processing and training the model..."):
+        result = process_and_save_model(uploaded_file)
 
         st.sidebar.header("Navigation")
         selection = st.sidebar.radio("Select View", ["Dataset", "Forecast"])
@@ -135,8 +117,11 @@ if uploaded_file is not None:
             st.line_chart(result['data'])
 
         elif selection == "Forecast":
-            st.subheader("Forecast Results")
-            st.write(f"Test RMSE: {result['rmse']:.3f}")
-
+            st.subheader("Model Saved Successfully")
+            st.write(f"The model has been saved to: {result['model_path']}")
+            
             st.subheader("Future Predictions")
-            st.line_chart(result['future_predictions'])
+            # Placeholder for future predictions section
+            st.write("To view future predictions, please load the model and make predictions.")
+
+# Note: To run this script, ensure you have a `requirements.txt` file with the necessary libraries.
