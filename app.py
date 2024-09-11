@@ -5,10 +5,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM
-from sklearn.metrics import mean_squared_error
-from math import sqrt
 from pandas import DataFrame, Series, concat
-import tensorflow as tf
+import joblib
 import os
 
 # Fungsi yang sudah ada
@@ -47,13 +45,11 @@ def invert_scale(scaler, X, value):
 def fit_lstm(train, batch_size, nb_epoch, neurons):
     X, y = train[:, 0:-1], train[:, -1]
     X = X.reshape(X.shape[0], 1, X.shape[1])
-
     model = Sequential()
     model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2])))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam')
     model.fit(X, y, epochs=nb_epoch, batch_size=batch_size, verbose=1, shuffle=False)
-
     return model
 
 def forecast_lstm(model, batch_size, X):
@@ -67,61 +63,81 @@ def toOneDimension(value):
 def convertDimension(value):
     return np.reshape(value, (value.shape[0], 1, value.shape[0]))
 
-# Fungsi untuk memproses data dan model
-def process_and_save_model(file):
-    # Load dataset
-    series = pd.read_csv(file, usecols=[0], engine='python')
+# Path to save/load the model
+model_file_path = 'lstm_model.pkl'
 
-    # Transform data
-    raw_values = series.values
-    diff_values = difference(raw_values, 1)
-    supervised = timeseries_to_supervised(diff_values, 1)
-    supervised_values = supervised.values
+# Function to save model to local file
+def save_model(model, model_file_path):
+    joblib.dump(model, model_file_path)
 
-    # Split data into train
-    train = supervised_values[0:]
-
-    # Transform the scale of the data
-    scaler, train_scaled = scale(train)
-
-    # Fit the model
-    lstm_model = fit_lstm(train_scaled, 1, 100, 5)
-
-    # Save the model
-    model_path = 'lstm_model.h5'
-    lstm_model.save(model_path)
-
-    return {
-        'data': series,
-        'model_path': model_path
-    }
+# Function to load model from local file
+def load_model(model_file_path):
+    if os.path.exists(model_file_path):
+        return joblib.load(model_file_path)
+    else:
+        return None
 
 # Streamlit app
 st.title("Time Series Forecasting with LSTM")
 
+# Handle file upload
 uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file is not None:
     st.write("File uploaded successfully!")
-    with st.spinner("Processing and training the model..."):
-        result = process_and_save_model(uploaded_file)
 
-        st.sidebar.header("Navigation")
-        selection = st.sidebar.radio("Select View", ["Dataset", "Forecast"])
+    # Initialize session state if not already done
+    if 'model_trained' not in st.session_state:
+        st.session_state.model_trained = False
+    if 'data' not in st.session_state:
+        st.session_state.data = None
+    if 'model' not in st.session_state:
+        st.session_state.model = None
+    if 'scaler' not in st.session_state:
+        st.session_state.scaler = None
 
-        if selection == "Dataset":
-            st.subheader("Dataset Overview")
-            st.write(result['data'].head(20))
-            
-            st.subheader("Line Chart of Dataset")
-            st.line_chart(result['data'])
+    if not st.session_state.model_trained:
+        with st.spinner("Processing and training the model..."):
+            # Load and process the data
+            series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
+            raw_values = series.values
+            diff_values = difference(raw_values, 1)
+            supervised = timeseries_to_supervised(diff_values, 1)
+            supervised_values = supervised.values
+            train = supervised_values[0:]
+            scaler, train_scaled = scale(train)
+            # Train the model
+            lstm_model = fit_lstm(train_scaled, 1, 100, 5)
+            # Save the model
+            save_model(lstm_model, model_file_path)
+            # Update session state
+            st.session_state.data = series
+            st.session_state.model_file_path = model_file_path
+            st.session_state.scaler = scaler
+            st.session_state.model_trained = True
 
-        elif selection == "Forecast":
-            st.subheader("Model Saved Successfully")
-            st.write(f"The model has been saved to: {result['model_path']}")
-            
-            st.subheader("Future Predictions")
-            # Placeholder for future predictions section
-            st.write("To view future predictions, please load the model and make predictions.")
+    st.sidebar.header("Navigation")
+    selection = st.sidebar.radio("Select View", ["Dataset", "Forecast"])
 
-# Note: To run this script, ensure you have a `requirements.txt` file with the necessary libraries.
+    if selection == "Dataset":
+        st.subheader("Dataset Overview")
+        st.write(st.session_state.data.head(20))
+        
+        st.subheader("Line Chart of Dataset")
+        st.line_chart(st.session_state.data)
+
+    elif selection == "Forecast":
+        st.subheader("Forecasting")
+
+        if 'model_trained' in st.session_state and st.session_state.model_trained:
+            if st.session_state.model is None:
+                st.session_state.model = load_model(st.session_state.model_file_path)
+                
+            if st.session_state.model is not None:
+                st.write("Model loaded successfully.")
+                # Placeholder for future predictions section
+                # Here you can add code to make predictions and display them
+            else:
+                st.write("Failed to load model.")
+        else:
+            st.write("Model not available.")
