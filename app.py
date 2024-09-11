@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, LSTM
 from pandas import DataFrame, Series, concat
 import joblib
@@ -37,13 +37,6 @@ def scale(train):
     train_scaled = scaler.transform(train)
     return scaler, train_scaled
 
-# def invert_scale(scaler, X, value):
-#     new_row = [x for x in X] + [value[0]]  
-#     array = np.array(new_row)
-#     array = array.reshape(1, len(array))
-#     inverted = scaler.inverse_transform(array)
-#     return inverted[0, -1]
-
 def invert_scale(scaler, X, value):
     # Pastikan value adalah array numpy
     if np.isscalar(value):
@@ -54,7 +47,6 @@ def invert_scale(scaler, X, value):
     
     inverted = scaler.inverse_transform(new_row)
     return inverted[0, -1]
-
 
 def fit_lstm(train, batch_size, nb_epoch, neurons):
     X, y = train[:, 0:-1], train[:, -1]
@@ -78,16 +70,16 @@ def convertDimension(value):
     return np.reshape(value, (value.shape[0], 1, value.shape[0]))
 
 # Path to save/load the model
-model_file_path = 'lstm_model.pkl'
+model_file_path = 'lstm_model.h5'  # Change to .h5 for Keras models
 
 # Function to save model to local file
 def save_model(model, model_file_path):
-    joblib.dump(model, model_file_path)
+    model.save(model_file_path)
 
 # Function to load model from local file
-def load_model(model_file_path):
+def load_model_from_file(model_file_path):
     if os.path.exists(model_file_path):
-        return joblib.load(model_file_path)
+        return load_model(model_file_path)
     else:
         return None
 
@@ -145,7 +137,7 @@ if uploaded_file is not None:
 
         if 'model_trained' in st.session_state and st.session_state.model_trained:
             if st.session_state.model is None:
-                st.session_state.model = load_model(st.session_state.model_file_path)
+                st.session_state.model = load_model_from_file(st.session_state.model_file_path)
                 
             if st.session_state.model is not None:
                 st.write("Model loaded successfully.")
@@ -172,7 +164,7 @@ if uploaded_file is not None:
                     yhat = invert_scale(scaler, X, yhat)
                     yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
                     predictions.append(yhat)
-                    expected = raw_values[i+1 ]
+                    expected = raw_values[i+1]
                     st.write(f'Month={i+1}, Predicted={yhat:.2f}, Expected={expected:.2f}')
                 
                 # Report performance
@@ -184,7 +176,7 @@ if uploaded_file is not None:
                 plt.plot(raw_values[0:88], label="Actual data")
                 plt.plot(predictions, label="Testing line")
                 plt.xlabel("Month")
-                plt.ylabel("case")
+                plt.ylabel("Case")
                 plt.title("Real vs Predict")
                 plt.legend()
                 st.pyplot(plt)
@@ -219,7 +211,8 @@ if uploaded_file is not None:
                 st.write(future_predictions_df)
 
                 # Show predict result
-                plt.plot(dataHasilPrediksi)
+                plt.figure(figsize=(15, 7))
+                plt.plot(dataHasilPrediksi, label="Future Predictions", color="orange")
                 plt.title("Future Predictions")
                 st.pyplot(plt)
 
