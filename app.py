@@ -171,8 +171,16 @@ if uploaded_file is not None:
                     tmpPredictions.append(yhat)
                     yhat = invert_scale(scaler, X, yhat)
                     yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
+                    
+                    # Ensure yhat is a scalar
+                    yhat = yhat if np.issubdtype(type(yhat), np.number) else yhat.item()
+                    
                     predictions.append(yhat)
-                    expected = raw_values[i+1 ]
+                    
+                    # Ensure expected is a scalar
+                    expected = raw_values[i+1]
+                    expected = expected if np.issubdtype(type(expected), np.number) else expected.item()
+                    
                     st.write(f'Month={i+1}, Predicted={yhat:.2f}, Expected={expected:.2f}')
                 
                 # Flatten arrays before plotting
@@ -244,6 +252,7 @@ if uploaded_file is not None:
                 st.pyplot(plt)
             else:
                 st.write("Failed to load model.")
+
 
         else:
             st.write("Model not available.")
