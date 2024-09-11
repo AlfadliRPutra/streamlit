@@ -151,7 +151,7 @@ if uploaded_file is not None:
                 st.write("Model loaded successfully.")
                 lstm_model = st.session_state.model
                 scaler = st.session_state.scaler
-                raw_values = st.session_state.data.values.flatten()
+                raw_values = st.session_state.data.values
                 diff_values = difference(raw_values, 1)
                 supervised = timeseries_to_supervised(diff_values, 1)
                 supervised_values = supervised.values
@@ -163,58 +163,75 @@ if uploaded_file is not None:
                 hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
                 
                 # Walk-forward validation
-                predictions = []
+                predictions = list()
+                tmpPredictions = list()
                 for i in range(len(train_scaled)):
                     X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
                     yhat = forecast_lstm(lstm_model, 1, X)
+                    tmpPredictions.append(yhat)
                     yhat = invert_scale(scaler, X, yhat)
                     yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
+                    
+                    # Ensure yhat is a scalar
+                    yhat = yhat if np.issubdtype(type(yhat), np.number) else yhat.item()
+                    
                     predictions.append(yhat)
                 
-                # Convert predictions to a pandas DataFrame and fill missing values
-                predictions = pd.Series(predictions).fillna(method='ffill').fillna(method='bfill')
-                raw_values = pd.Series(raw_values).fillna(method='ffill').fillna(method='bfill')
-            
+                # Flatten arrays before plotting
+                raw_values = raw_values.flatten()
+                predictions = np.array(predictions).flatten()
+                
+                # Report performance
+                rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
+                st.write(f'Test RMSE: {rmse:.3f}')
+                
+                # Plotting
+                plt.figure(figsize=(15, 7))
+                plt.plot(raw_values, label="Actual data")
+                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
+                plt.xlabel("Month")
+                plt.ylabel("Case")
+                plt.title("Actual Data vs. Predictions")
+                plt.legend()
+                st.pyplot(plt)
+                
                 # Prepare future predictions
-                lastPredict = np.array([predictions.values[-1]])
+                lastPredict = tmpPredictions[-1:]
                 lastPredict = toOneDimension(lastPredict)
                 lastPredict = convertDimension(lastPredict)
             
-                futureMonth = 6
+                futureMonth = 6  # Predict for 6 months
+            
                 futureArray = []
                 for i in range(futureMonth):
-                    try:
-                        lastPredict = lstm_model.predict(lastPredict)
-                        lastPredict = lastPredict.flatten()
-                        futureArray.append(lastPredict)
-                        lastPredict = convertDimension(lastPredict)
-                    except Exception as e:
-                        st.error(f"Error predicting future values: {e}")
-                        break
-                
-                futureArray = np.array(futureArray).flatten()
-                
-                # Ensure that futureArray has the correct length
-                futureIndex = np.arange(len(predictions), len(predictions) + len(futureArray))
-                
-                # Combine actual, predictions, and future predictions
-                full_index = np.arange(len(raw_values) + len(futureArray))
-                full_values = np.concatenate([raw_values, futureArray])
-                
-                data_for_plotting = pd.DataFrame({
-                    'Month': full_index,
-                    'Values': full_values
-                }).set_index('Month')
-                
-                st.subheader("Actual and Predicted Data")
-                st.line_chart(pd.DataFrame({
-                    'Actual Data': np.concatenate([raw_values.values, [None] * len(futureArray)]),
-                    'Predicted Data': predictions.values
-                }).fillna(method='ffill').fillna(method='bfill'), use_container_width=True)
-                
-                st.subheader("Future Predictions")
-                st.line_chart(data_for_plotting, use_container_width=True)
+                    lastPredict = lstm_model.predict(lastPredict)
+                    futureArray.append(lastPredict)
+                    lastPredict = convertDimension(lastPredict)
+            
+                # Before denormalize
+                newFutureData = np.reshape(futureArray, (-1, 1))
+                newFuture = np.reshape(newFutureData, (-1, 1))
+            
+                dataHasilPrediksi = []
+                for i in range(len(newFutureData)):
+                    tmpResult = invert_scale(scaler, [0], newFutureData[i])
+                    tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
+                    dataHasilPrediksi.append(tmpResult)
+            
+                # Plot future predictions
+                plt.figure(figsize=(15, 7))
+                plt.plot(raw_values, label="Actual data")
+                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
+                future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
+                plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="orange")
+                plt.xlabel("Month")
+                plt.ylabel("Case")
+                plt.title("Actual Data, Predictions, and Future Predictions")
+                plt.legend()
+                st.pyplot(plt)
+            
             else:
                 st.write("Failed to load model.")
+
         else:
             st.write("Model not available.")
