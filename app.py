@@ -185,11 +185,18 @@ if uploaded_file is not None:
                 futureMonth = 6
                 futureArray = []
                 for i in range(futureMonth):
-                    lastPredict = lstm_model.predict(lastPredict)
-                    futureArray.append(lastPredict.flatten())
-                    lastPredict = convertDimension(lastPredict)
+                    try:
+                        lastPredict = lstm_model.predict(lastPredict)
+                        lastPredict = lastPredict.flatten()
+                        futureArray.append(lastPredict)
+                        lastPredict = convertDimension(lastPredict)
+                    except Exception as e:
+                        st.error(f"Error predicting future values: {e}")
+                        break
                 
                 futureArray = np.array(futureArray).flatten()
+                
+                # Ensure that futureArray has the correct length
                 futureIndex = np.arange(len(predictions), len(predictions) + len(futureArray))
                 
                 # Combine actual, predictions, and future predictions
@@ -211,7 +218,6 @@ if uploaded_file is not None:
                 st.line_chart(data_for_plotting, use_container_width=True)
             else:
                 st.write("Failed to load model.")
-
 
         else:
             st.write("Model not available.")
