@@ -1,155 +1,86 @@
 import pandas as pd
-import plotly.express as px
+import numpy as np
 import streamlit as st
+from forecast_functions import (
+    timeseries_to_supervised, difference, inverse_difference,
+    scale, invert_scale, fit_lstm, forecast_lstm,
+    toOneDimension, convertDimension
+)
+from math import sqrt
 
 # Page configuration
-st.set_page_config(page_title="Sales Dashboard", page_icon=":bar_chart:", layout="wide")
+st.set_page_config(page_title="Forecast Dashboard", page_icon=":chart_with_upwards_trend:", layout="wide")
 
-# ---- READ EXCEL ----
-@st.cache_data
-def get_data_from_excel(file):
-    df = pd.read_excel(
-        io=file,
-        engine="openpyxl",
-        sheet_name="Sales",
-        skiprows=3,
-        usecols="B:R",
-        nrows=1000,
-    )
-    # Add 'hour' column to dataframe
-    df["hour"] = pd.to_datetime(df["Time"], format="%H:%M:%S").dt.hour
-    return df
+# ---- FILE UPLOAD ----
+st.title(":file_folder: Upload Your Dataset for Forecasting")
+uploaded_file = st.file_uploader("Choose a file", type=["csv"])
 
-# ---- SIDEBAR ----
-st.sidebar.header("Navigation")
-page = st.sidebar.radio(
-    "Go to:",
-    options=["Upload File", "Dataset", "Forecasted"]
-)
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file, usecols=[0])
+    st.success("File uploaded and data loaded successfully!")
 
-# ---- FILE UPLOAD SECTION ----
-if page == "Upload File":
-    st.title(":file_folder: Upload Your Dataset")
-    uploaded_file = st.file_uploader("Choose a file", type=["xlsx"])
+    # Display a sample of the uploaded dataset
+    st.write("### Dataset Preview")
+    st.write(df.head())
 
-    if uploaded_file is not None:
-        df = get_data_from_excel(uploaded_file)
-        st.success("File uploaded and data loaded successfully!")
+    # Forecasting logic
+    series = df
+    raw_values = series.values
+    diff_values = difference(raw_values, 1)
+    supervised = timeseries_to_supervised(diff_values, 1)
+    supervised_values = supervised.values
+    train = supervised_values[0:]
+    scaler, train_scaled = scale(train)
+    lstm_model = fit_lstm(train_scaled, 1, 100, 5)
 
-        # Show a sample of the uploaded dataset
-        st.write("### Dataset Preview")
-        st.write(df.head())
+    # Forecast the entire training dataset
+    train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
+    predictions = []
+    for i in range(len(train_scaled)):
+        X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
+        yhat = forecast_lstm(lstm_model, 1, X)
+        yhat = invert_scale(scaler, X, yhat)
+        yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
+        predictions.append(yhat)
 
-        st.sidebar.success("File uploaded successfully. Go to 'Dataset' to explore the data.")
-        st.stop()
+    # Report performance
+    rmse = sqrt(mean_squared_error(raw_values[0:len(predictions)], predictions))
+    st.write(f"Test RMSE: {rmse:.3f}")
 
-# ---- FILTERING SECTION (For Dataset Page) ----
-if page == "Dataset":
-    if 'df' not in locals():
-        st.warning("Please upload a file first.")
-        st.stop()
+    # Forecast future months
+    futureMonth = st.slider("Select number of future months to predict:", min_value=1, max_value=12, value=6)
+    model_predict = lstm_model
+    lastPredict = train_scaled[-1, 0:-1]
+    futureArray = []
+    for i in range(futureMonth):
+        lastPredict = model_predict.predict(lastPredict.reshape(1, 1, -1))
+        futureArray.append(lastPredict)
+        lastPredict = convertDimension(lastPredict)
 
-    st.sidebar.header("Please Filter Here:")
-    city = st.sidebar.multiselect(
-        "Select the City:",
-        options=df["City"].unique(),
-        default=df["City"].unique()
-    )
+    # Before denormalize
+    newFutureData = np.reshape(futureArray, (-1, 1))
+    future_predictions_df = pd.DataFrame(newFutureData, columns=['Future Prediction Result (Before Invert Scaling)'])
 
-    customer_type = st.sidebar.multiselect(
-        "Select the Customer Type:",
-        options=df["Customer_type"].unique(),
-        default=df["Customer_type"].unique(),
-    )
+    # Change dimension and invert scaling
+    newFuture = np.reshape(newFutureData, (-1, 1))
+    dataHasilPrediksi = []
+    for i in range(len(newFutureData)):
+        tmpResult = invert_scale(scaler, [0], newFutureData[i])
+        tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
+        dataHasilPrediksi.append(tmpResult)
 
-    gender = st.sidebar.multiselect(
-        "Select the Gender:",
-        options=df["Gender"].unique(),
-        default=df["Gender"].unique()
-    )
+    # Display future predictions
+    st.write("### Future Predictions")
+    future_predictions_df = pd.DataFrame(dataHasilPrediksi, columns=['Future Prediction Result (After Invert Scaling)'])
+    st.write(future_predictions_df)
 
-    df_selection = df.query(
-        "City == @city & Customer_type ==@customer_type & Gender == @gender"
-    )
-
-    # Check if the dataframe is empty:
-    if df_selection.empty:
-        st.warning("No data available based on the current filter settings!")
-        st.stop()  # This will halt the app from further execution.
-
-# ---- MAINPAGE FOR DATASET ----
-if page == "Dataset":
-    st.title(":bar_chart: Sales Dashboard")
-    st.markdown("##")
-
-    # TOP KPI's
-    total_sales = int(df_selection["Total"].sum())
-    average_rating = round(df_selection["Rating"].mean(), 1)
-    star_rating = ":star:" * int(round(average_rating, 0))
-    average_sale_by_transaction = round(df_selection["Total"].mean(), 2)
-
-    left_column, middle_column, right_column = st.columns(3)
-    with left_column:
-        st.subheader("Total Sales:")
-        st.subheader(f"US $ {total_sales:,}")
-    with middle_column:
-        st.subheader("Average Rating:")
-        st.subheader(f"{average_rating} {star_rating}")
-    with right_column:
-        st.subheader("Average Sales Per Transaction:")
-        st.subheader(f"US $ {average_sale_by_transaction}")
-
-    st.markdown("""---""")
-
-    # SALES BY PRODUCT LINE [BAR CHART]
-    sales_by_product_line = df_selection.groupby(by=["Product line"])[["Total"]].sum().sort_values(by="Total")
-    fig_product_sales = px.bar(
-        sales_by_product_line,
-        x="Total",
-        y=sales_by_product_line.index,
-        orientation="h",
-        title="<b>Sales by Product Line</b>",
-        color_discrete_sequence=["#0083B8"] * len(sales_by_product_line),
-        template="plotly_white",
-    )
-    fig_product_sales.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        xaxis=(dict(showgrid=False))
-    )
-
-    # SALES BY HOUR [BAR CHART]
-    sales_by_hour = df_selection.groupby(by=["hour"])[["Total"]].sum()
-    fig_hourly_sales = px.bar(
-        sales_by_hour,
-        x=sales_by_hour.index,
-        y="Total",
-        title="<b>Sales by hour</b>",
-        color_discrete_sequence=["#0083B8"] * len(sales_by_hour),
-        template="plotly_white",
-    )
-    fig_hourly_sales.update_layout(
-        xaxis=dict(tickmode="linear"),
-        plot_bgcolor="rgba(0,0,0,0)",
-        yaxis=(dict(showgrid=False)),
-    )
-
-    left_column, right_column = st.columns(2)
-    left_column.plotly_chart(fig_hourly_sales, use_container_width=True)
-    right_column.plotly_chart(fig_product_sales, use_container_width=True)
-
-# ---- MAINPAGE FOR FORECASTED ----
-if page == "Forecasted":
-    st.title(":chart_with_upwards_trend: Forecasted Sales")
-    st.markdown("This page is reserved for forecasting data.")
-    # Placeholder for future forecasting visualization or analysis
-    st.write("Here you can add sales forecasting visualizations and analytics.")
-    
-# ---- HIDE STREAMLIT STYLE ----
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+    # Plot results
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(len(raw_values)), raw_values, label='Actual')
+    plt.plot(range(len(raw_values), len(raw_values) + len(dataHasilPrediksi)), dataHasilPrediksi, label='Forecasted', linestyle='--')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.title('Forecast vs Actual')
+    plt.legend()
+    st.pyplot(plt)
