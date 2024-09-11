@@ -1,15 +1,15 @@
-import pandas as pd  # pip install pandas openpyxl
-import plotly.express as px  # pip install plotly-express
-import streamlit as st  # pip install streamlit
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
-# emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
+# Page configuration
 st.set_page_config(page_title="Sales Dashboard", page_icon=":bar_chart:", layout="wide")
 
 # ---- READ EXCEL ----
 @st.cache_data
-def get_data_from_excel():
+def get_data_from_excel(file):
     df = pd.read_excel(
-        io="supermarkt_sales.xlsx",
+        io=file,
         engine="openpyxl",
         sheet_name="Sales",
         skiprows=3,
@@ -20,17 +20,35 @@ def get_data_from_excel():
     df["hour"] = pd.to_datetime(df["Time"], format="%H:%M:%S").dt.hour
     return df
 
-df = get_data_from_excel()
-
 # ---- SIDEBAR ----
 st.sidebar.header("Navigation")
 page = st.sidebar.radio(
     "Go to:",
-    options=["Dataset", "Forecasted"]
+    options=["Upload File", "Dataset", "Forecasted"]
 )
 
-# ---- FILTERING SECTION (Optional based on page) ----
+# ---- FILE UPLOAD SECTION ----
+if page == "Upload File":
+    st.title(":file_folder: Upload Your Dataset")
+    uploaded_file = st.file_uploader("Choose a file", type=["xlsx"])
+
+    if uploaded_file is not None:
+        df = get_data_from_excel(uploaded_file)
+        st.success("File uploaded and data loaded successfully!")
+
+        # Show a sample of the uploaded dataset
+        st.write("### Dataset Preview")
+        st.write(df.head())
+
+        st.sidebar.success("File uploaded successfully. Go to 'Dataset' to explore the data.")
+        st.stop()
+
+# ---- FILTERING SECTION (For Dataset Page) ----
 if page == "Dataset":
+    if 'df' not in locals():
+        st.warning("Please upload a file first.")
+        st.stop()
+
     st.sidebar.header("Please Filter Here:")
     city = st.sidebar.multiselect(
         "Select the City:",
