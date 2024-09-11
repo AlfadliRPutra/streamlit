@@ -98,7 +98,6 @@ st.title("Time Series Forecasting with LSTM")
 uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file is not None:
-    st.write("File uploaded successfully!")
 
     # Initialize session state if not already done
     if 'model_trained' not in st.session_state:
@@ -148,7 +147,6 @@ if uploaded_file is not None:
                 st.session_state.model = load_model(st.session_state.model_file_path)
                 
             if st.session_state.model is not None:
-                st.write("Model loaded successfully.")
                 lstm_model = st.session_state.model
                 scaler = st.session_state.scaler
                 raw_values = st.session_state.data.values
