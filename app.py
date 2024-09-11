@@ -2,15 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pandas import DataFrame
-from pandas import Series
-from pandas import concat
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM
 from sklearn.metrics import mean_squared_error
 from math import sqrt
+from pandas import DataFrame, Series, concat
 
+# Fungsi yang sudah ada
 def timeseries_to_supervised(data, lag=1):
     df = DataFrame(data)
     columns = [df.shift(i) for i in range(1, lag+1)]
@@ -37,7 +36,7 @@ def scale(train):
     return scaler, train_scaled
 
 def invert_scale(scaler, X, value):
-    new_row = [x for x in X] + [value[0]] 
+    new_row = [x for x in X] + [value[0]]  
     array = np.array(new_row)
     array = array.reshape(1, len(array))
     inverted = scaler.inverse_transform(array)
@@ -48,12 +47,10 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
     X = X.reshape(X.shape[0], 1, X.shape[1])
 
     model = Sequential()
-    model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2])))  
+    model.add(LSTM(neurons, input_shape=(X.shape[1], X.shape[2]))) 
     model.add(Dense(1))
-
     model.compile(loss='mean_squared_error', optimizer='adam')
     model.fit(X, y, epochs=nb_epoch, batch_size=batch_size, verbose=1, shuffle=False)
-
     return model
 
 def forecast_lstm(model, batch_size, X):
@@ -61,6 +58,13 @@ def forecast_lstm(model, batch_size, X):
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0,0]
 
+def toOneDimension(value):
+    return np.asarray(value)
+
+def convertDimension(value):
+    return np.reshape(value, (value.shape[0], 1, value.shape[0]))
+
+# Fungsi untuk memproses data
 def process_data(file):
     series = pd.read_csv(file, usecols=[0], engine='python')
     raw_values = series.values
@@ -85,16 +89,16 @@ def process_data(file):
         expected = raw_values[i+1 ]
 
     rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
-    
+
     futureMonth = 6
     lastPredict = tmpPredictions[-1:]
-    lastPredict = np.asarray(lastPredict)
-    lastPredict = np.reshape(lastPredict, (lastPredict.shape[0], 1, lastPredict.shape[0]))
+    lastPredict = toOneDimension(lastPredict)
+    lastPredict = convertDimension(lastPredict)
     futureArray = []
     for i in range(futureMonth):
         lastPredict = lstm_model.predict(lastPredict)
         futureArray.append(lastPredict)
-        lastPredict = np.reshape(lastPredict, (lastPredict.shape[0], 1, lastPredict.shape[0]))
+        lastPredict = convertDimension(lastPredict)
 
     newFutureData = np.reshape(futureArray, (-1,1))
     dataHasilPrediksi = []
@@ -102,7 +106,7 @@ def process_data(file):
         tmpResult = invert_scale(scaler, [0], newFutureData[i])
         tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
         dataHasilPrediksi.append(tmpResult)
-    
+
     return {
         'data': series,
         'predictions': predictions,
@@ -110,7 +114,7 @@ def process_data(file):
         'rmse': rmse
     }
 
-# Streamlit app
+# Aplikasi Streamlit
 st.title("Time Series Forecasting with LSTM")
 
 uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv", "xls", "xlsx"])
