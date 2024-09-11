@@ -8,6 +8,8 @@ from tensorflow.keras.layers import Dense, LSTM
 from pandas import DataFrame, Series, concat
 import joblib
 import os
+from math import sqrt
+from sklearn.metrics import mean_squared_error
 
 # Fungsi yang sudah ada
 def timeseries_to_supervised(data, lag=1):
@@ -135,8 +137,96 @@ if uploaded_file is not None:
                 
             if st.session_state.model is not None:
                 st.write("Model loaded successfully.")
-                # Placeholder for future predictions section
-                # Here you can add code to make predictions and display them
+                lstm_model = st.session_state.model
+                scaler = st.session_state.scaler
+                raw_values = st.session_state.data.values
+                diff_values = difference(raw_values, 1)
+                supervised = timeseries_to_supervised(diff_values, 1)
+                supervised_values = supervised.values
+                train = supervised_values[0:]
+                train_scaled = scaler.transform(train)
+                
+                # Forecast the entire training dataset
+                train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
+                hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
+                
+                # Walk-forward validation
+                predictions = list()
+                tmpPredictions = list()
+                for i in range(len(train_scaled)):
+                    X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
+                    yhat = forecast_lstm(lstm_model, 1, X)
+                    tmpPredictions.append(yhat)
+                    yhat = invert_scale(scaler, X, yhat)
+                    yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
+                    predictions.append(yhat)
+                    expected = raw_values[i+1 ]
+                    st.write(f'Month={i+1}, Predicted={yhat:.2f}, Expected={expected:.2f}')
+                
+                # Report performance
+                rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
+                st.write(f'Test RMSE: {rmse:.3f}')
+                
+                # Line plot of observed vs predicted
+                plt.figure(figsize=(15, 7))
+                plt.plot(raw_values[0:88], label="Actual data")
+                plt.plot(predictions, label="Testing line")
+                plt.xlabel("Month")
+                plt.ylabel("case")
+                plt.title("Real vs Predict")
+                plt.legend()
+                st.pyplot(plt)
+
+                # Prepare future predictions
+                lastPredict = tmpPredictions[-1:]
+                lastPredict = toOneDimension(lastPredict)
+                lastPredict = convertDimension(lastPredict)
+
+                futureMonth = 6  # Predict for 6 months
+
+                futureArray = []
+                for i in range(futureMonth):
+                    lastPredict = lstm_model.predict(lastPredict)
+                    futureArray.append(lastPredict)
+                    lastPredict = convertDimension(lastPredict)
+
+                # Before denormalize
+                newFutureData = np.reshape(futureArray, (-1, 1))
+                newFuture = np.reshape(newFutureData, (-1, 1))
+
+                dataHasilPrediksi = []
+                for i in range(len(newFutureData)):
+                    tmpResult = invert_scale(scaler, [0], newFutureData[i])
+                    tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
+                    dataHasilPrediksi.append(tmpResult)
+                    st.write(f"Month {i+1} : {tmpResult:.2f}")
+
+                # Display the final predictions
+                st.write("Future Predictions after Denormalization:")
+                future_predictions_df = pd.DataFrame(dataHasilPrediksi, columns=['Future Prediction Result (After Invert Scaling)'])
+                st.write(future_predictions_df)
+
+                # Show predict result
+                plt.plot(dataHasilPrediksi)
+                plt.title("Future Predictions")
+                st.pyplot(plt)
+
+                # Generate continuous future prediction line
+                newFutureLine = [None] * len(raw_values)
+                for i in range(len(dataHasilPrediksi)):
+                    newFutureLine.append(dataHasilPrediksi[i])
+
+                # Create comparison graphic
+                plt.figure(figsize=(15, 10))
+                plt.plot(raw_values, label="Actual data")
+                plt.plot(predictions, label="Testing line")
+                plt.plot(newFutureLine, label="Future prediction line", linestyle="--", color="orange")
+                plt.xlabel("Month")
+                plt.ylabel("Case")
+                plt.title("Actual Data vs. Past Predictions and Future Predictions")
+                plt.legend()
+                st.pyplot(plt)
+
             else:
                 st.write("Failed to load model.")
         else:
