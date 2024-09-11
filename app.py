@@ -147,11 +147,11 @@ if uploaded_file is not None:
             if st.session_state.model is None:
                 st.session_state.model = load_model(st.session_state.model_file_path)
                 
-            if st.session_state.model is not None:
+           if st.session_state.model is not None:
                 st.write("Model loaded successfully.")
                 lstm_model = st.session_state.model
                 scaler = st.session_state.scaler
-                raw_values = st.session_state.data.values
+                raw_values = st.session_state.data.values.flatten()
                 diff_values = difference(raw_values, 1)
                 supervised = timeseries_to_supervised(diff_values, 1)
                 supervised_values = supervised.values
@@ -177,24 +177,6 @@ if uploaded_file is not None:
                     
                     predictions.append(yhat)
                 
-                # Flatten arrays before plotting
-                raw_values = raw_values.flatten()
-                predictions = np.array(predictions).flatten()
-                
-                # Report performance
-                rmse = sqrt(mean_squared_error(raw_values[0:87], predictions))
-                st.write(f'Test RMSE: {rmse:.3f}')
-                
-                # Plotting
-                plt.figure(figsize=(15, 7))
-                plt.plot(raw_values, label="Actual data")
-                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
-                plt.xlabel("Month")
-                plt.ylabel("Case")
-                plt.title("Actual Data vs. Predictions")
-                plt.legend()
-                st.pyplot(plt)
-                
                 # Prepare future predictions
                 lastPredict = tmpPredictions[-1:]
                 lastPredict = toOneDimension(lastPredict)
@@ -218,17 +200,25 @@ if uploaded_file is not None:
                     tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
                     dataHasilPrediksi.append(tmpResult)
             
-                # Plot future predictions
-                plt.figure(figsize=(15, 7))
-                plt.plot(raw_values, label="Actual data")
-                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
+                # Convert predictions and future data for Streamlit
+                predictions_index = np.arange(len(predictions))
                 future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
-                plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="orange")
-                plt.xlabel("Month")
-                plt.ylabel("Case")
-                plt.title("Actual Data, Predictions, and Future Predictions")
-                plt.legend()
-                st.pyplot(plt)
+            
+                # Create DataFrames for Streamlit charts
+                predictions_df = pd.DataFrame({
+                    'Month': np.concatenate([predictions_index, future_index]),
+                    'Values': np.concatenate([predictions, dataHasilPrediksi])
+                }).set_index('Month')
+            
+                # Display the charts
+                st.subheader("Predicted vs. Actual Data")
+                st.line_chart(pd.DataFrame({
+                    'Actual Data': raw_values,
+                    'Predicted Data': np.concatenate([predictions, [None]*len(dataHasilPrediksi)])
+                }))
+            
+                st.subheader("Future Predictions")
+                st.line_chart(predictions_df, use_container_width=True)
             
             else:
                 st.write("Failed to load model.")
