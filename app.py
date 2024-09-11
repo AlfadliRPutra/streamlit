@@ -204,16 +204,23 @@ if uploaded_file is not None:
                 predictions_index = np.arange(len(predictions))
                 future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
             
+                # Ensure all arrays are the same length
+                actual_data_length = len(raw_values)
+                prediction_data_length = len(predictions) + len(dataHasilPrediksi)
+                
+                if prediction_data_length > actual_data_length:
+                    padding = [None] * (prediction_data_length - actual_data_length)
+                    raw_values = np.concatenate([raw_values, padding])
+                
                 # Create DataFrames for Streamlit charts
                 predictions_df = pd.DataFrame({
                     'Month': np.concatenate([predictions_index, future_index]),
                     'Values': np.concatenate([predictions, dataHasilPrediksi])
                 }).set_index('Month')
             
-                # Display the charts
                 st.subheader("Predicted vs. Actual Data")
                 st.line_chart(pd.DataFrame({
-                    'Actual Data': raw_values,
+                    'Actual Data': raw_values[:len(predictions)],
                     'Predicted Data': np.concatenate([predictions, [None]*len(dataHasilPrediksi)])
                 }))
             
