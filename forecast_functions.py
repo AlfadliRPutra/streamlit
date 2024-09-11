@@ -1,6 +1,7 @@
 # forecast_functions.py
 import numpy as np
 import pandas as pd
+import sklearn
 from pandas import DataFrame, Series, concat
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
