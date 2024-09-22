@@ -222,21 +222,11 @@ if uploaded_file is not None:
     
             # GUI untuk memilih jumlah hari untuk prediksi
             # GUI untuk memilih jumlah hari untuk prediksi
-            # GUI untuk memilih jumlah hari untuk prediksi
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
 
             # Plot untuk prediksi setelah input future_days
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
-            
-                # Prediksi untuk seluruh data historis (data asli)
-                historical_predictions = []
-                for i in range(len(train_scaled)):
-                    X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
-                    yhat = forecast_lstm(lstm_model, 1, X)
-                    yhat_inverted = invert_scale(st.session_state.scaler, X, yhat)
-                    yhat_inverted = inverse_difference(raw_values, yhat_inverted, len(train_scaled) - i)
-                    historical_predictions.append(yhat_inverted)
             
                 # Menyiapkan prediksi masa depan
                 lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
@@ -262,15 +252,13 @@ if uploaded_file is not None:
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
             
-                # Menggabungkan prediksi historis dan masa depan
-                combined_predictions = np.concatenate([historical_predictions, future_predictions_inverted])
+                # Menggabungkan data asli dan prediksi masa depan
                 combined_df = pd.concat([st.session_state.data, future_df], axis=0)
             
                 # Plot gabungan data aktual dan prediksi
                 plt.figure(figsize=(15, 7))
-                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10", color="blue")
-                plt.plot(st.session_state.data.index, historical_predictions, label="Prediksi LSTM Historis", linestyle="--", color="orange")
-                plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM Masa Depan", linestyle="--", color="red")
+                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
+                plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM", linestyle="--", color="red")
             
                 # Garis pemisah pada hari terakhir data asli
                 plt.axvline(x=last_date, color='blue', linestyle='--', label="Batas Data Asli")
@@ -280,5 +268,3 @@ if uploaded_file is not None:
                 plt.title(f"Tingkat PM10 dan Prediksi LSTM untuk {future_days} Hari ke Depan")
                 plt.legend()
                 st.pyplot(plt)
-
-
