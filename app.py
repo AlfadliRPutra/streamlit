@@ -101,10 +101,10 @@ if uploaded_file is not None:
     # Initialize session state if not already done
     if 'model_trained' not in st.session_state:
         st.session_state.model_trained = False
-    if 'data' not in st.session_state:
-        st.session_state.data = None
     if 'raw_data' not in st.session_state:  # Menyimpan data asli
         st.session_state.raw_data = None
+    if 'series' not in st.session_state:  # Menyimpan data yang digunakan untuk analisis
+        st.session_state.series = None
     if 'model' not in st.session_state:
         st.session_state.model = None
     if 'scaler' not in st.session_state:
@@ -112,32 +112,37 @@ if uploaded_file is not None:
 
     if not st.session_state.model_trained:
         with st.spinner("Processing and training the model..."):
-            # Determine the file extension and load the data accordingly
+            # Tentukan ekstensi file dan muat data
             file_extension = uploaded_file.name.split('.')[-1]
 
             if file_extension == 'csv':
-                # Load all columns for raw data
+                # Muat semua kolom untuk data mentah
                 st.session_state.raw_data = pd.read_csv(uploaded_file, engine='python')
-                # Use only the second column (index 1) for the series
-                series = st.session_state.raw_data.iloc[:, 1]
             elif file_extension in ['xlsx', 'xls']:
-                # Load all columns for raw data
+                # Muat semua kolom untuk data mentah
                 st.session_state.raw_data = pd.read_excel(uploaded_file, header=0)
-                # Use only the second column (index 1) for the series
-                series = st.session_state.raw_data.iloc[:, 1]
 
-            raw_values = series.values
+            # Ambil kolom kedua untuk series
+            st.session_state.series = st.session_state.raw_data.iloc[:, 1]
+            
+            # Pastikan kolom pertama diubah menjadi datetime dan set sebagai indeks
+            st.session_state.raw_data.iloc[:, 0] = pd.to_datetime(st.session_state.raw_data.iloc[:, 0])
+            st.session_state.raw_data.set_index(st.session_state.raw_data.columns[0], inplace=True)
+
+            # Proses data untuk pelatihan model
+            raw_values = st.session_state.series.values
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
             supervised_values = supervised.values
             train = supervised_values[0:]
             scaler, train_scaled = scale(train)
-            # Train the model
+
+            # Latih model
             lstm_model = fit_lstm(train_scaled, 1, 100, 5)
-            # Save the model
+            # Simpan model
             save_model(lstm_model, model_file_path)
-            # Update session state
-            st.session_state.data = series
+
+            # Perbarui status sesi
             st.session_state.model_file_path = model_file_path
             st.session_state.scaler = scaler
             st.session_state.model_trained = True
