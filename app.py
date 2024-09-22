@@ -236,7 +236,7 @@ if uploaded_file is not None:
 
 
                 # Display future predictions table
-                st.subheader("Tabel Prediksi Masa Depan")
+                st.subheader("Tabel Prediksi")
                 st.dataframe(future_df)
 
                 # Plot future predictions
