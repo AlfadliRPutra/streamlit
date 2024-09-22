@@ -155,7 +155,7 @@ if uploaded_file is not None:
             train_scaled = st.session_state.scaler.transform(train)
     
             # GUI untuk memilih jumlah hari untuk prediksi, tanpa nilai default
-            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=1, max_value=300)
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
             # Periksa apakah pengguna telah memilih jumlah hari
             if future_days > 0:
