@@ -182,18 +182,21 @@ if uploaded_file is not None:
                     
                     predictions.append(yhat)
                 
-                # Flatten arrays before plotting
-                raw_values = raw_values.flatten()
-                predictions = np.array(predictions).flatten()
+               # Flatten raw values and predictions
+                raw_values_flat = raw_values.flatten()
+                predictions_flat = np.array(predictions).flatten()
                 
-                # Determine the length for RMSE calculation
+                # Determine the minimum length for RMSE calculation
                 min_length = min(len(raw_values_flat), len(predictions_flat))
+                
+                # Subset the values to ensure they have the same length
                 raw_values_subset = raw_values_flat[:min_length]
                 predictions_subset = predictions_flat[:min_length]
                 
                 # Report performance
                 rmse = sqrt(mean_squared_error(raw_values_subset, predictions_subset))
                 st.write(f'Test RMSE: {rmse:.3f}')
+
                 
                 # Plotting
                 plt.figure(figsize=(15, 7))
