@@ -160,10 +160,7 @@ if uploaded_file is not None:
         plt.xticks(rotation=45)  # Memutar label tanggal untuk keterbacaan
         plt.grid(True)
         st.pyplot(plt)
-
-
-    
-    
+        
     if selection == "Peramalan":
         st.subheader("Peramalan")
         
@@ -200,9 +197,20 @@ if uploaded_file is not None:
             # Menampilkan RMSE dan MAPE
             st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.3f}")
             st.write(f"**Mean Absolute Percentage Error (MAPE):** {mape:.2f}%")
+            
+            # Membuat DataFrame untuk data aktual dan prediksi
+            test_dates = st.session_state.data.index[split_index+1:]
+            result_df = pd.DataFrame({
+                'Tanggal': test_dates,
+                'Aktual': actual_test_values,
+                'Prediksi': predictions
+            }).set_index('Tanggal')
+    
+            # Menampilkan DataFrame hasil testing
+            st.subheader("Tabel Data Aktual vs Prediksi")
+            st.dataframe(result_df)
     
             # Menampilkan plot hasil testing
-            test_dates = st.session_state.data.index[split_index+1:]
             plt.figure(figsize=(15, 7))
             plt.plot(test_dates, actual_test_values, label="Aktual PM10")
             plt.plot(test_dates, predictions, label="Prediksi PM10", linestyle="--", color="red")
@@ -256,3 +264,4 @@ if uploaded_file is not None:
                 st.pyplot(plt)
         else:
             st.write("Model tidak tersedia.")
+
