@@ -153,10 +153,12 @@ if uploaded_file is not None:
             supervised_values = supervised.values
             train = supervised_values[0:]
             train_scaled = st.session_state.scaler.transform(train)
-            
+    
+            # GUI to select the number of days for prediction
+            future_days = st.number_input("Select number of days to predict:", min_value=1, max_value=30, value=7)
+    
             # Prepare future predictions
             lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
-            future_days = 7  # Predict for the next 7 days
             future_predictions = []
     
             for _ in range(future_days):
@@ -194,4 +196,5 @@ if uploaded_file is not None:
             st.pyplot(plt)
         else:
             st.write("Model not available.")
+
 
