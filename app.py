@@ -98,12 +98,13 @@ st.title("Time Series Forecasting with LSTM")
 uploaded_file = st.sidebar.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx", "xls"])
 
 if uploaded_file is not None:
-
     # Initialize session state if not already done
     if 'model_trained' not in st.session_state:
         st.session_state.model_trained = False
     if 'data' not in st.session_state:
         st.session_state.data = None
+    if 'raw_data' not in st.session_state:  # Menyimpan data asli
+        st.session_state.raw_data = None
     if 'model' not in st.session_state:
         st.session_state.model = None
     if 'scaler' not in st.session_state:
@@ -115,11 +116,16 @@ if uploaded_file is not None:
             file_extension = uploaded_file.name.split('.')[-1]
 
             if file_extension == 'csv':
-                # Load CSV data
-                series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
+                # Load all columns for raw data
+                st.session_state.raw_data = pd.read_csv(uploaded_file, engine='python')
+                # Use only the second column (index 1) for the series
+                series = st.session_state.raw_data.iloc[:, 1]
             elif file_extension in ['xlsx', 'xls']:
-                # Load Excel data from column B (index 1)
-                series = pd.read_excel(uploaded_file, usecols=[1], header=0)
+                # Load all columns for raw data
+                st.session_state.raw_data = pd.read_excel(uploaded_file, header=0)
+                # Use only the second column (index 1) for the series
+                series = st.session_state.raw_data.iloc[:, 1]
+
             raw_values = series.values
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
@@ -141,10 +147,10 @@ if uploaded_file is not None:
 
     if selection == "Dataset":
         st.subheader("Dataset Overview")
-        st.write(st.session_state.data.head(20))
+        st.write(st.session_state.raw_data.head(20))  # Tampilkan data asli
         
         st.subheader("Line Chart of Dataset")
-        st.line_chart(st.session_state.data)
+        st.line_chart(st.session_state.raw_data)  # Tampilkan grafik dari data asli
 
     elif selection == "Forecast":
         st.subheader("Forecasting")
@@ -205,5 +211,3 @@ if uploaded_file is not None:
                 st.write("Failed to load model.")
         else:
             st.write("Model not available.")
-
-
