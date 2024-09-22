@@ -229,10 +229,11 @@ if uploaded_file is not None:
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
 
-                # Combine actual and future predictions
-                combined_df = pd.concat([st.session_state.data, future_df], axis=0)
+                # Display future predictions table
+                st.subheader("Tabel Prediksi Masa Depan")
+                st.dataframe(future_df)
 
-                # Plot combined actual and future predictions
+                # Plot future predictions
                 plt.figure(figsize=(15, 7))
                 plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
                 plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM", linestyle="--", color="red")
