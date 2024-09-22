@@ -221,6 +221,9 @@ if uploaded_file is not None:
             st.pyplot(plt)
     
             # GUI untuk memilih jumlah hari untuk prediksi
+            # GUI untuk memilih jumlah hari untuk prediksi
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
+
             # Plot untuk prediksi setelah input future_days
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
