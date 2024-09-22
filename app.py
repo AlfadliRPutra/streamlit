@@ -182,49 +182,45 @@ if uploaded_file is not None:
             
             # DataFrame for actual vs predicted
             test_dates = st.session_state.data.index[split_index + 1:]
-            # DataFrame for actual vs predicted (round predictions)
             result_df = pd.DataFrame({
                 'Tanggal': test_dates,
                 'Aktual': actual_test_values,
-                'Prediksi': np.round(predictions)  # Rounding predictions to nearest whole number
+                'Prediksi': predictions
             }).set_index('Tanggal')
-            
+    
             st.subheader("Tabel Data Aktual vs Prediksi")
             st.dataframe(result_df)
-            
+    
             # Plot predictions vs actual
             plt.figure(figsize=(15, 7))
             plt.plot(test_dates, actual_test_values, label="Aktual PM10")
-            plt.plot(test_dates, np.round(predictions), label="Prediksi PM10", linestyle="--", color="red")  # Rounded predictions
+            plt.plot(test_dates, predictions, label="Prediksi PM10", linestyle="--", color="red")
             plt.xlabel("Tanggal")
             plt.ylabel("Konsentrasi PM10")
             plt.title("Hasil Prediksi vs Aktual pada Data Testing")
             plt.legend()
             st.pyplot(plt)
-            
+
             # Input for future predictions
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
-            
+
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
                 lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
                 future_predictions = []
-            
+
                 for _ in range(future_days):
                     yhat = forecast_lstm(lstm_model, 1, lastPredict)
                     future_predictions.append(yhat)
                     lastPredict = convertDimension(np.array([[yhat]]))
-            
+
                 # Invert scaling and differencing for future predictions
                 future_predictions_inverted = []
                 for i in range(len(future_predictions)):
                     tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
                     tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
                     future_predictions_inverted.append(tmp_result)
-            
-                # Round future predictions to whole numbers
-                future_predictions_inverted = np.round(future_predictions_inverted)
-            
+
                 # Create DataFrame for future predictions
                 last_date = st.session_state.data.index[-1]
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
@@ -232,11 +228,11 @@ if uploaded_file is not None:
                     'Tanggal': future_index,
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
-            
+
                 # Display future predictions table
                 st.subheader("Tabel Prediksi Masa Depan")
                 st.dataframe(future_df)
-            
+
                 # Plot future predictions
                 plt.figure(figsize=(15, 7))
                 plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
