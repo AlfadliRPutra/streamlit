@@ -155,7 +155,7 @@ if uploaded_file is not None:
             train_scaled = st.session_state.scaler.transform(train)
     
             # GUI untuk memilih jumlah hari untuk prediksi
-            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=1, max_value=30, value=7)
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=1, max_value=30, value=10)
     
             # Menyiapkan prediksi masa depan
             lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
