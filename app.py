@@ -199,18 +199,16 @@ if uploaded_file is not None:
                 plt.title("Actual Data vs. Predictions")
                 plt.legend()
                 st.pyplot(plt)
-    
-                # Add user input for future forecast horizon
-                st.subheader("Future Forecasting")
-                future_months = st.number_input('Select number of months to forecast:', min_value=1, max_value=24, value=6)
                 
                 # Prepare future predictions
                 lastPredict = tmpPredictions[-1:]
                 lastPredict = toOneDimension(lastPredict)
                 lastPredict = convertDimension(lastPredict)
             
+                futureMonth = 6  # Predict for 6 months
+            
                 futureArray = []
-                for i in range(future_months):
+                for i in range(futureMonth):
                     lastPredict = lstm_model.predict(lastPredict)
                     futureArray.append(lastPredict)
                     lastPredict = convertDimension(lastPredict)
@@ -233,13 +231,11 @@ if uploaded_file is not None:
                 plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="red")
                 plt.xlabel("Month")
                 plt.ylabel("Case")
-                plt.title(f"Actual Data, Predictions, and {future_months}-Month Future Predictions")
+                plt.title("Actual Data, Predictions, and Future Predictions")
                 plt.legend()
                 st.pyplot(plt)
             
             else:
                 st.write("Failed to load model.")
-
-
         else:
             st.write("Model not available.")
