@@ -148,9 +148,19 @@ if uploaded_file is not None:
     if selection == "Dataset":
         st.subheader("Tabel")
         st.write(st.session_state.data)
-
+    
         st.subheader("Visualisasi data")
-        st.line_chart(st.session_state.data['PM10'])
+    
+        # Plot menggunakan matplotlib untuk menambahkan label sumbu
+        plt.figure(figsize=(10, 6))
+        plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10", color="blue")
+        plt.xlabel("Tanggal")  # Label untuk sumbu-x
+        plt.ylabel("Tingkat PM10")  # Label untuk sumbu-y
+        plt.title("Visualisasi Tingkat PM10 dari Dataset")
+        plt.xticks(rotation=45)  # Memutar label tanggal untuk keterbacaan
+        plt.grid(True)
+        st.pyplot(plt)
+
 
     
     
