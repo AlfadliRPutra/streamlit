@@ -185,7 +185,7 @@ if uploaded_file is not None:
             result_df = pd.DataFrame({
                 'Tanggal': test_dates,
                 'Aktual': actual_test_values,
-                'Prediksi': predictions
+                'Prediksi': np.round(np.array(predictions).flatten())  # Ensure predictions are flattened
             }).set_index('Tanggal')
     
             st.subheader("Tabel Data Aktual vs Prediksi")
@@ -226,7 +226,7 @@ if uploaded_file is not None:
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
                 future_df = pd.DataFrame({
                     'Tanggal': future_index,
-                    'Prediksi': future_predictions_inverted
+                    'Prediksi': np.round(future_predictions_inverted)
                 }).set_index('Tanggal')
 
                 # Display future predictions table
