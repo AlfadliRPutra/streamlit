@@ -225,7 +225,6 @@ if uploaded_file is not None:
             # GUI untuk memilih jumlah hari untuk prediksi
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
-            # Plot untuk prediksi setelah input future_days
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
             
@@ -237,6 +236,9 @@ if uploaded_file is not None:
                     yhat_inverted = invert_scale(st.session_state.scaler, X, yhat)
                     yhat_inverted = inverse_difference(raw_values, yhat_inverted, len(train_scaled) - i)
                     historical_predictions.append(yhat_inverted)
+            
+                # Konversi prediksi historis menjadi array 1D
+                historical_predictions = np.array(historical_predictions).flatten()
             
                 # Menyiapkan prediksi masa depan
                 lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
@@ -254,6 +256,9 @@ if uploaded_file is not None:
                     tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
                     future_predictions_inverted.append(tmp_result)
             
+                # Konversi prediksi masa depan menjadi array 1D
+                future_predictions_inverted = np.array(future_predictions_inverted).flatten()
+            
                 # Membuat DataFrame untuk prediksi masa depan
                 last_date = st.session_state.data.index[-1]
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
@@ -262,8 +267,7 @@ if uploaded_file is not None:
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
             
-                # Menggabungkan prediksi historis dan masa depan
-                combined_predictions = np.concatenate([historical_predictions, future_predictions_inverted])
+                # Gabungkan data historis dan prediksi masa depan
                 combined_df = pd.concat([st.session_state.data, future_df], axis=0)
             
                 # Plot gabungan data aktual dan prediksi
@@ -280,3 +284,4 @@ if uploaded_file is not None:
                 plt.title(f"Tingkat PM10 dan Prediksi LSTM untuk {future_days} Hari ke Depan")
                 plt.legend()
                 st.pyplot(plt)
+
