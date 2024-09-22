@@ -8,6 +8,16 @@ from tensorflow.keras.layers import Dense, LSTM
 from pandas import DataFrame, Series, concat
 import joblib
 import os
+from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
+import math
+
+# Fungsi untuk menghitung RMSE
+def calculate_rmse(actual, predicted):
+    return math.sqrt(mean_squared_error(actual, predicted))
+
+# Fungsi untuk menghitung MAPE
+def calculate_mape(actual, predicted):
+    return mean_absolute_percentage_error(actual, predicted) * 100
 
 # Fungsi untuk mengonversi deret waktu menjadi pembelajaran terawasi
 def timeseries_to_supervised(data, lag=1):
@@ -142,7 +152,9 @@ if uploaded_file is not None:
         st.subheader("Visualisasi data")
         st.line_chart(st.session_state.data['PM10'])
 
-    elif selection == "Peramalan":
+    
+    
+    if selection == "Peramalan":
         st.subheader("Peramalan")
         
         if st.session_state.model_trained:
@@ -151,60 +163,86 @@ if uploaded_file is not None:
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
             supervised_values = supervised.values
-            train = supervised_values[0:]
-            train_scaled = st.session_state.scaler.transform(train)
-    
-            # GUI untuk memilih jumlah hari untuk prediksi, tanpa nilai default
-            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
+            # Membagi data menjadi training dan testing (80% train, 20% test)
+            split_index = int(0.8 * len(supervised_values))
+            train, test = supervised_values[:split_index], supervised_values[split_index:]
+            train_scaled = st.session_state.scaler.transform(train)
+            test_scaled = st.session_state.scaler.transform(test)
+    
+            # Melatih model (jika diperlukan, model diload dari disk)
+            lstm_model = load_model(model_file_path)
+    
+            # Prediksi pada data testing
+            predictions = []
+            for i in range(len(test_scaled)):
+                X, y = test_scaled[i, 0:-1], test_scaled[i, -1]
+                yhat = forecast_lstm(lstm_model, 1, X)
+                yhat_inverted = invert_scale(st.session_state.scaler, X, yhat)
+                yhat_inverted = inverse_difference(raw_values, yhat_inverted, len(test_scaled)+1-i)
+                predictions.append(yhat_inverted)
+    
+            # RMSE dan MAPE
+            actual_test_values = raw_values[split_index+1:].flatten()
+            rmse = calculate_rmse(actual_test_values, predictions)
+            mape = calculate_mape(actual_test_values, predictions)
+            
+            # Menampilkan RMSE dan MAPE
+            st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.3f}")
+            st.write(f"**Mean Absolute Percentage Error (MAPE):** {mape:.2f}%")
+    
+            # Menampilkan plot hasil testing
+            test_dates = st.session_state.data.index[split_index+1:]
+            plt.figure(figsize=(15, 7))
+            plt.plot(test_dates, actual_test_values, label="Aktual PM10")
+            plt.plot(test_dates, predictions, label="Prediksi PM10", linestyle="--", color="red")
+            plt.xlabel("Tanggal")
+            plt.ylabel("Tingkat PM10")
+            plt.title("Hasil Prediksi vs Aktual pada Data Testing")
+            plt.legend()
+            st.pyplot(plt)
+    
+            # GUI untuk memilih jumlah hari untuk prediksi
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
+    
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
-            
-                if st.session_state.model_trained:
-                    lstm_model = load_model(model_file_path)
-                    raw_values = st.session_state.data['PM10'].values.reshape(-1, 1)
-                    diff_values = difference(raw_values, 1)
-                    supervised = timeseries_to_supervised(diff_values, 1)
-                    supervised_values = supervised.values
-                    train = supervised_values[0:]
-                    train_scaled = st.session_state.scaler.transform(train)
-            
-                    # Menyiapkan prediksi masa depan
-                    lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
-                    future_predictions = []
-            
-                    for _ in range(future_days):
-                        yhat = forecast_lstm(lstm_model, 1, lastPredict)
-                        future_predictions.append(yhat)
-                        lastPredict = convertDimension(np.array([[yhat]]))
-            
-                    # Membalikkan skala dan selisih (urutan yang benar)
-                    future_predictions_inverted = []
-                    for i in range(len(future_predictions)):
-                        tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
-                        tmp_result = inverse_difference(raw_values, tmp_result, i + 1)  # Perbaikan urutan
-                        future_predictions_inverted.append(tmp_result)
-            
-                    # Membuat DataFrame untuk prediksi masa depan
-                    last_date = st.session_state.data.index[-1]  # Mendapatkan tanggal terakhir dari dataset
-                    future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
-                    future_df = pd.DataFrame({
-                        'Tanggal': future_index,
-                        'Prediksi': future_predictions_inverted
-                    }).set_index('Tanggal')
-            
-                    # Menampilkan DataFrame prediksi masa depan
-                    st.subheader("Forecast")
-                    st.dataframe(future_df)
-            
-                    # Grafik
-                    plt.figure(figsize=(15, 7))
-                    plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
-                    plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
-                    plt.xlabel("Tanggal")
-                    plt.ylabel("Tingkat PM10")
-                    plt.title("Tingkat PM10 dan Hasil Prediksi")
-                    plt.legend()
-                    st.pyplot(plt)
-                else:
-                    st.write("Model tidak tersedia.")
+    
+                lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
+                future_predictions = []
+    
+                for _ in range(future_days):
+                    yhat = forecast_lstm(lstm_model, 1, lastPredict)
+                    future_predictions.append(yhat)
+                    lastPredict = convertDimension(np.array([[yhat]]))
+    
+                # Membalikkan skala dan selisih untuk prediksi masa depan
+                future_predictions_inverted = []
+                for i in range(len(future_predictions)):
+                    tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
+                    tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
+                    future_predictions_inverted.append(tmp_result)
+    
+                # Membuat DataFrame untuk prediksi masa depan
+                last_date = st.session_state.data.index[-1]
+                future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
+                future_df = pd.DataFrame({
+                    'Tanggal': future_index,
+                    'Prediksi': future_predictions_inverted
+                }).set_index('Tanggal')
+    
+                # Menampilkan DataFrame prediksi masa depan
+                st.subheader("Forecast")
+                st.dataframe(future_df)
+    
+                # Grafik prediksi masa depan
+                plt.figure(figsize=(15, 7))
+                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
+                plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
+                plt.xlabel("Tanggal")
+                plt.ylabel("Tingkat PM10")
+                plt.title("Tingkat PM10 dan Hasil Prediksi")
+                plt.legend()
+                st.pyplot(plt)
+        else:
+            st.write("Model tidak tersedia.")
