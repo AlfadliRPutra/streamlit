@@ -98,13 +98,12 @@ st.title("Time Series Forecasting with LSTM")
 uploaded_file = st.sidebar.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx", "xls"])
 
 if uploaded_file is not None:
+
     # Initialize session state if not already done
     if 'model_trained' not in st.session_state:
         st.session_state.model_trained = False
-    if 'raw_data' not in st.session_state:  # Menyimpan data asli
-        st.session_state.raw_data = None
-    if 'series' not in st.session_state:  # Menyimpan data yang digunakan untuk analisis
-        st.session_state.series = None
+    if 'data' not in st.session_state:
+        st.session_state.data = None
     if 'model' not in st.session_state:
         st.session_state.model = None
     if 'scaler' not in st.session_state:
@@ -112,37 +111,27 @@ if uploaded_file is not None:
 
     if not st.session_state.model_trained:
         with st.spinner("Processing and training the model..."):
-            # Tentukan ekstensi file dan muat data
+            # Determine the file extension and load the data accordingly
             file_extension = uploaded_file.name.split('.')[-1]
 
             if file_extension == 'csv':
-                # Muat semua kolom untuk data mentah
-                st.session_state.raw_data = pd.read_csv(uploaded_file, engine='python')
+                # Load CSV data
+                series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
             elif file_extension in ['xlsx', 'xls']:
-                # Muat semua kolom untuk data mentah
-                st.session_state.raw_data = pd.read_excel(uploaded_file, header=0)
-
-            # Ambil kolom kedua untuk series
-            st.session_state.series = st.session_state.raw_data.iloc[:, 1]
-            
-            # Pastikan kolom pertama diubah menjadi datetime dan set sebagai indeks
-            st.session_state.raw_data.iloc[:, 0] = pd.to_datetime(st.session_state.raw_data.iloc[:, 0])
-            st.session_state.raw_data.set_index(st.session_state.raw_data.columns[0], inplace=True)
-
-            # Proses data untuk pelatihan model
-            raw_values = st.session_state.series.values
+                # Load Excel data from column B (index 1)
+                series = pd.read_excel(uploaded_file, usecols=[1], header=0)
+            raw_values = series.values
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
             supervised_values = supervised.values
             train = supervised_values[0:]
             scaler, train_scaled = scale(train)
-
-            # Latih model
+            # Train the model
             lstm_model = fit_lstm(train_scaled, 1, 100, 5)
-            # Simpan model
+            # Save the model
             save_model(lstm_model, model_file_path)
-
-            # Perbarui status sesi
+            # Update session state
+            st.session_state.data = series
             st.session_state.model_file_path = model_file_path
             st.session_state.scaler = scaler
             st.session_state.model_trained = True
@@ -152,26 +141,10 @@ if uploaded_file is not None:
 
     if selection == "Dataset":
         st.subheader("Dataset Overview")
-        st.write(st.session_state.raw_data.head(20))  # Tampilkan data asli
+        st.write(st.session_state.data.head(20))
         
-        # Debug: Tampilkan kolom yang ada
-        st.write("Columns in dataset:", st.session_state.raw_data.columns.tolist())
-        
-        # Pastikan kolom pertama diubah menjadi datetime
-        st.session_state.raw_data.iloc[:, 0] = pd.to_datetime(st.session_state.raw_data.iloc[:, 0])
-        
-        # Set kolom tanggal sebagai indeks
-        st.session_state.raw_data.set_index(st.session_state.raw_data.columns[0], inplace=True)
-        
-        # Cek jumlah kolom setelah pengaturan indeks
-        st.write("Columns after setting index:", st.session_state.raw_data.columns.tolist())
-        
-        # Tampilkan grafik dengan tanggal sebagai indeks jika ada kolom kedua
-        if len(st.session_state.raw_data.columns) > 0:
-            st.line_chart(st.session_state.raw_data.iloc[:, 0])  # Ambil kolom PM10
-        else:
-            st.error("Tidak ada data PM10 yang tersedia.")
-
+        st.subheader("Line Chart of Dataset")
+        st.line_chart(st.session_state.data)
 
     elif selection == "Forecast":
         st.subheader("Forecasting")
@@ -232,3 +205,4 @@ if uploaded_file is not None:
                 st.write("Failed to load model.")
         else:
             st.write("Model not available.")
+
