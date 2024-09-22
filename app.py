@@ -137,14 +137,10 @@ if uploaded_file is not None:
 
     if selection == "Dataset":
         st.subheader("Tabel")
-        col1, col2 = st.columns(2)  # Membuat dua kolom
+        st.write(st.session_state.data.head(20))
 
-        with col1:
-            st.write(st.session_state.data.head(20))  # Tampilkan tabel di kolom pertama
-
-        with col2:
-            st.subheader("Visualisasi data")
-            st.line_chart(st.session_state.data['PM10'])  # Grafik di kolom kedua
+        st.subheader("Visualisasi data")
+        st.line_chart(st.session_state.data['PM10'])
 
     elif selection == "Peramalan":
         st.subheader("Peramalan")
@@ -188,24 +184,15 @@ if uploaded_file is not None:
             # Menampilkan DataFrame prediksi masa depan
             st.subheader("Forecast")
             st.dataframe(future_df)
-
+    
             # Grafik
             plt.figure(figsize=(15, 7))
             plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
-            plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
+            plt.plot(future_df.index, future_predictions_inverted, label="Hasil Predikais", linestyle="--", color="red")
             plt.xlabel("Tanggal")
             plt.ylabel("Tingkat PM10")
             plt.title("Tingkat PM10 dan Hasil Prediksi")
             plt.legend()
-            
-            col1, col2 = st.columns(2)  # Membuat dua kolom untuk layout
-
-            with col1:
-                st.pyplot(plt)  # Grafik di kolom pertama
-
-            with col2:
-                st.subheader("Prediksi Dataframe")
-                st.dataframe(future_df)  # Tabel di kolom kedua
+            st.pyplot(plt)
         else:
             st.write("Model tidak tersedia.")
-
