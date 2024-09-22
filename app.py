@@ -221,13 +221,18 @@ if uploaded_file is not None:
                     tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
                     future_predictions_inverted.append(tmp_result)
 
+                # Flatten future_predictions_inverted before creating the DataFrame
+                future_predictions_inverted = np.array(future_predictions_inverted).flatten()
+                
                 # Create DataFrame for future predictions
                 last_date = st.session_state.data.index[-1]
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
+                
                 future_df = pd.DataFrame({
                     'Tanggal': future_index,
-                    'Prediksi': np.round(future_predictions_inverted)
+                    'Prediksi': np.round(future_predictions_inverted)  # Ensure predictions are rounded and flattened
                 }).set_index('Tanggal')
+
 
                 # Display future predictions table
                 st.subheader("Tabel Prediksi Masa Depan")
