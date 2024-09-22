@@ -151,15 +151,21 @@ if uploaded_file is not None:
         
         # Debug: Tampilkan kolom yang ada
         st.write("Columns in dataset:", st.session_state.raw_data.columns.tolist())
-    
+        
         # Pastikan kolom pertama diubah menjadi datetime
         st.session_state.raw_data.iloc[:, 0] = pd.to_datetime(st.session_state.raw_data.iloc[:, 0])
-    
+        
         # Set kolom tanggal sebagai indeks
         st.session_state.raw_data.set_index(st.session_state.raw_data.columns[0], inplace=True)
-    
-        # Tampilkan grafik dengan tanggal sebagai indeks
-        st.line_chart(st.session_state.raw_data.iloc[:, 1])  # Kolom kedua untuk PM10
+        
+        # Cek jumlah kolom setelah pengaturan indeks
+        st.write("Columns after setting index:", st.session_state.raw_data.columns.tolist())
+        
+        # Tampilkan grafik dengan tanggal sebagai indeks jika ada kolom kedua
+        if len(st.session_state.raw_data.columns) > 0:
+            st.line_chart(st.session_state.raw_data.iloc[:, 0])  # Ambil kolom PM10
+        else:
+            st.error("Tidak ada data PM10 yang tersedia.")
 
 
     elif selection == "Forecast":
