@@ -222,8 +222,9 @@ if uploaded_file is not None:
     
             # GUI untuk memilih jumlah hari untuk prediksi
             # GUI untuk memilih jumlah hari untuk prediksi
+            # GUI untuk memilih jumlah hari untuk prediksi
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
-
+            
             # Plot untuk prediksi setelah input future_days
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
@@ -253,14 +254,13 @@ if uploaded_file is not None:
                 }).set_index('Tanggal')
             
                 # Menggabungkan data asli dan prediksi masa depan
-                combined_df = pd.concat([st.session_state.data, future_df], axis=0)
+                combined_df = pd.concat([st.session_state.data['PM10'], future_df['Prediksi']], axis=0)
             
-                # Plot gabungan data aktual dan prediksi
+                # Plot gabungan data asli dan prediksi
                 plt.figure(figsize=(15, 7))
-                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
-                plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM", linestyle="--", color="red")
+                plt.plot(combined_df.index, combined_df, label="Data dan Prediksi PM10", color="black")
             
-                # Garis pemisah pada hari terakhir data asli
+                # Garis pemisah pada hari terakhir data asli (optional)
                 plt.axvline(x=last_date, color='blue', linestyle='--', label="Batas Data Asli")
             
                 plt.xlabel("Tanggal")
@@ -268,3 +268,4 @@ if uploaded_file is not None:
                 plt.title(f"Tingkat PM10 dan Prediksi LSTM untuk {future_days} Hari ke Depan")
                 plt.legend()
                 st.pyplot(plt)
+
