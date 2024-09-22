@@ -221,26 +221,26 @@ if uploaded_file is not None:
             st.pyplot(plt)
     
             # GUI untuk memilih jumlah hari untuk prediksi
-            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
-    
+            # Plot untuk prediksi setelah input future_days
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
-    
+            
+                # Menyiapkan prediksi masa depan
                 lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
                 future_predictions = []
-    
+            
                 for _ in range(future_days):
                     yhat = forecast_lstm(lstm_model, 1, lastPredict)
                     future_predictions.append(yhat)
                     lastPredict = convertDimension(np.array([[yhat]]))
-    
+            
                 # Membalikkan skala dan selisih untuk prediksi masa depan
                 future_predictions_inverted = []
                 for i in range(len(future_predictions)):
                     tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
                     tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
                     future_predictions_inverted.append(tmp_result)
-    
+            
                 # Membuat DataFrame untuk prediksi masa depan
                 last_date = st.session_state.data.index[-1]
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
@@ -248,20 +248,20 @@ if uploaded_file is not None:
                     'Tanggal': future_index,
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
-    
-                # Menampilkan DataFrame prediksi masa depan
-                st.subheader("Forecast")
-                st.dataframe(future_df)
-    
-                # Grafik prediksi masa depan
+            
+                # Menggabungkan data asli dan prediksi masa depan
+                combined_df = pd.concat([st.session_state.data, future_df], axis=0)
+            
+                # Plot gabungan data aktual dan prediksi
                 plt.figure(figsize=(15, 7))
-                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
-                plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
+                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
+                plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM", linestyle="--", color="red")
+            
+                # Garis pemisah pada hari terakhir data asli
+                plt.axvline(x=last_date, color='blue', linestyle='--', label="Batas Data Asli")
+            
                 plt.xlabel("Tanggal")
                 plt.ylabel("Tingkat PM10")
-                plt.title("Tingkat PM10 dan Hasil Prediksi")
+                plt.title(f"Tingkat PM10 dan Prediksi LSTM untuk {future_days} Hari ke Depan")
                 plt.legend()
                 st.pyplot(plt)
-        else:
-            st.write("Model tidak tersedia.")
-
