@@ -9,7 +9,7 @@ from pandas import DataFrame, Series, concat
 import joblib
 import os
 
-# Function to convert time series to supervised learning
+# Fungsi untuk mengonversi deret waktu menjadi pembelajaran terawasi
 def timeseries_to_supervised(data, lag=1):
     df = DataFrame(data)
     columns = [df.shift(i) for i in range(1, lag + 1)]
@@ -18,7 +18,7 @@ def timeseries_to_supervised(data, lag=1):
     df.fillna(0, inplace=True)
     return df
 
-# Function to compute the difference
+# Fungsi untuk menghitung selisih
 def difference(dataset, interval=1):
     diff = list()
     for i in range(interval, len(dataset)):
@@ -26,11 +26,11 @@ def difference(dataset, interval=1):
         diff.append(value)
     return Series(diff)
 
-# Function to invert the difference
+# Fungsi untuk membalikkan selisih
 def inverse_difference(history, yhat, interval=1):
     return yhat + history[-interval]
 
-# Function to scale the data
+# Fungsi untuk mengukur skala data
 def scale(train):
     scaler = MinMaxScaler(feature_range=(-1, 1))
     scaler = scaler.fit(train)
@@ -38,7 +38,7 @@ def scale(train):
     train_scaled = scaler.transform(train)
     return scaler, train_scaled
 
-# Function to invert scaling
+# Fungsi untuk membalikkan skala
 def invert_scale(scaler, X, value):
     if np.isscalar(value):
         value = np.array([value])
@@ -49,7 +49,7 @@ def invert_scale(scaler, X, value):
     inverted = scaler.inverse_transform(new_row)
     return inverted[0, -1]
 
-# Function to fit the LSTM model
+# Fungsi untuk melatih model LSTM
 def fit_lstm(train, batch_size, nb_epoch, neurons):
     X, y = train[:, 0:-1], train[:, -1]
     X = X.reshape(X.shape[0], 1, X.shape[1])
@@ -60,38 +60,38 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
     model.fit(X, y, epochs=nb_epoch, batch_size=batch_size, verbose=1, shuffle=False)
     return model
 
-# Function to forecast using LSTM
+# Fungsi untuk memprediksi menggunakan LSTM
 def forecast_lstm(model, batch_size, X):
     X = X.reshape(1, 1, len(X))
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0, 0]
 
-# Function to convert dimensions for LSTM
+# Fungsi untuk mengubah dimensi untuk LSTM
 def convertDimension(value):
     return np.reshape(value, (value.shape[0], 1, value.shape[0]))
 
-# Path to save/load the model
+# Path untuk menyimpan/mengambil model
 model_file_path = 'lstm_model.pkl'
 
-# Function to save model to local file
+# Fungsi untuk menyimpan model ke file lokal
 def save_model(model, model_file_path):
     joblib.dump(model, model_file_path)
 
-# Function to load model from local file
+# Fungsi untuk memuat model dari file lokal
 def load_model(model_file_path):
     if os.path.exists(model_file_path):
         return joblib.load(model_file_path)
     else:
         return None
 
-# Streamlit app
-st.title("Time Series Forecasting with LSTM")
+# Aplikasi Streamlit
+st.title("Peramalan Deret Waktu dengan LSTM")
 
-# Handle file upload
-uploaded_file = st.sidebar.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx", "xls"])
+# Menangani unggahan file
+uploaded_file = st.sidebar.file_uploader("Unggah file CSV atau Excel Anda", type=["csv", "xlsx", "xls"])
 
 if uploaded_file is not None:
-    # Initialize session state if not already done
+    # Inisialisasi state sesi jika belum dilakukan
     if 'model_trained' not in st.session_state:
         st.session_state.model_trained = False
     if 'data' not in st.session_state:
@@ -102,8 +102,8 @@ if uploaded_file is not None:
         st.session_state.scaler = None
 
     if not st.session_state.model_trained:
-        with st.spinner("Processing and training the model..."):
-            # Load data based on file type
+        with st.spinner("Memproses dan melatih model..."):
+            # Memuat data berdasarkan tipe file
             file_extension = uploaded_file.name.split('.')[-1]
 
             if file_extension == 'csv':
@@ -111,7 +111,7 @@ if uploaded_file is not None:
             elif file_extension in ['xlsx', 'xls']:
                 series = pd.read_excel(uploaded_file, usecols=[0, 1], header=0)
                 
-            # Convert 'Tanggal' column to datetime and set as index
+            # Mengonversi kolom 'Tanggal' menjadi datetime dan mengatur sebagai indeks
             series['Tanggal'] = pd.to_datetime(series['Tanggal'], format='%d/%m/%Y')
             series.set_index('Tanggal', inplace=True)
 
@@ -122,28 +122,28 @@ if uploaded_file is not None:
             train = supervised_values[0:]
             scaler, train_scaled = scale(train)
 
-            # Train the model
+            # Melatih model
             lstm_model = fit_lstm(train_scaled, 1, 100, 5)
-            # Save the model
+            # Menyimpan model
             save_model(lstm_model, model_file_path)
 
-            # Update session state
+            # Memperbarui state sesi
             st.session_state.data = series
-            st.session_state.scaler = scaler  # Ensure scaler is saved
+            st.session_state.scaler = scaler  # Pastikan skala disimpan
             st.session_state.model_trained = True
 
-    st.sidebar.header("Navigation")
-    selection = st.sidebar.radio("Select View", ["Dataset", "Forecast"])
+    st.sidebar.header("Navigasi")
+    selection = st.sidebar.radio("Pilih Tampilan", ["Dataset", "Peramalan"])
 
     if selection == "Dataset":
-        st.subheader("Dataset Overview")
+        st.subheader("Gambaran Dataset")
         st.write(st.session_state.data.head(20))
 
-        st.subheader("Line Chart of PM10 Levels")
+        st.subheader("Grafik Garis Tingkat PM10")
         st.line_chart(st.session_state.data['PM10'])
 
-    elif selection == "Forecast":
-        st.subheader("Forecasting")
+    elif selection == "Peramalan":
+        st.subheader("Peramalan")
         
         if st.session_state.model_trained:
             lstm_model = load_model(model_file_path)
@@ -154,10 +154,10 @@ if uploaded_file is not None:
             train = supervised_values[0:]
             train_scaled = st.session_state.scaler.transform(train)
     
-            # GUI to select the number of days for prediction
-            future_days = st.number_input("Select number of days to predict:", min_value=1, max_value=30, value=7)
+            # GUI untuk memilih jumlah hari untuk prediksi
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=1, max_value=30, value=7)
     
-            # Prepare future predictions
+            # Menyiapkan prediksi masa depan
             lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
             future_predictions = []
     
@@ -166,35 +166,33 @@ if uploaded_file is not None:
                 future_predictions.append(yhat)
                 lastPredict = convertDimension(np.array([[yhat]]))
             
-            # Inverse scaling and differencing
+            # Membalikkan skala dan selisih
             future_predictions_inverted = []
             for i in range(len(future_predictions)):
                 tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
                 tmp_result = inverse_difference(raw_values, tmp_result, len(future_predictions) + 1 - i)
                 future_predictions_inverted.append(tmp_result)
     
-            # Create a DataFrame for future predictions
-            last_date = st.session_state.data.index[-1]  # Get the last date from the dataset
+            # Membuat DataFrame untuk prediksi masa depan
+            last_date = st.session_state.data.index[-1]  # Mendapatkan tanggal terakhir dari dataset
             future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
             future_df = pd.DataFrame({
-                'Date': future_index,
-                'Future Prediction': future_predictions_inverted
-            }).set_index('Date')
+                'Tanggal': future_index,
+                'Prediksi Masa Depan': future_predictions_inverted
+            }).set_index('Tanggal')
     
-            # Display the future predictions DataFrame
-            st.subheader("Future Predictions")
+            # Menampilkan DataFrame prediksi masa depan
+            st.subheader("Prediksi Masa Depan")
             st.dataframe(future_df)
     
-            # Plotting
+            # Grafik
             plt.figure(figsize=(15, 7))
-            plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Actual PM10 Levels")
-            plt.plot(future_df.index, future_predictions_inverted, label="Future Predictions", linestyle="--", color="red")
-            plt.xlabel("Date")
-            plt.ylabel("PM10 Levels")
-            plt.title("Actual PM10 Levels and Future Predictions")
+            plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10 Aktual")
+            plt.plot(future_df.index, future_predictions_inverted, label="Prediksi Masa Depan", linestyle="--", color="red")
+            plt.xlabel("Tanggal")
+            plt.ylabel("Tingkat PM10")
+            plt.title("Tingkat PM10 Aktual dan Prediksi Masa Depan")
             plt.legend()
             st.pyplot(plt)
         else:
-            st.write("Model not available.")
-
-
+            st.write("Model tidak tersedia.")
