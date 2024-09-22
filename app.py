@@ -154,10 +154,10 @@ if uploaded_file is not None:
         # Plot menggunakan matplotlib untuk menambahkan label sumbu
         plt.figure(figsize=(10, 6))
         plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10", color="blue")
-        plt.xlabel("Tanggal")
-        plt.ylabel("Tingkat PM10")
+        plt.xlabel("Tanggal")  # Label untuk sumbu-x
+        plt.ylabel("Tingkat PM10")  # Label untuk sumbu-y
         plt.title("Visualisasi Tingkat PM10 dari Dataset")
-        plt.xticks(rotation=45)
+        plt.xticks(rotation=45)  # Memutar label tanggal untuk keterbacaan
         plt.grid(True)
         st.pyplot(plt)
         
@@ -176,6 +176,9 @@ if uploaded_file is not None:
             train, test = supervised_values[:split_index], supervised_values[split_index:]
             train_scaled = st.session_state.scaler.transform(train)
             test_scaled = st.session_state.scaler.transform(test)
+    
+            # Melatih model (jika diperlukan, model diload dari disk)
+            lstm_model = load_model(model_file_path)
     
             # Prediksi pada data testing
             predictions = []
@@ -218,6 +221,7 @@ if uploaded_file is not None:
             st.pyplot(plt)
     
             # GUI untuk memilih jumlah hari untuk prediksi
+           # GUI untuk memilih jumlah hari untuk prediksi
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
             if future_days > 0:
