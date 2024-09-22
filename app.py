@@ -163,92 +163,41 @@ if uploaded_file is not None:
                 train = supervised_values[0:]
                 train_scaled = scaler.transform(train)
                 
-                # Forecast the entire training dataset
-                train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
-                hasiltraining = lstm_model.predict(train_reshaped, batch_size=1)
+                # Prepare future predictions
+                lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
+                future_months = 6  # Predict for 6 months
+                future_predictions = []
+    
+                for _ in range(future_months):
+                    yhat = forecast_lstm(lstm_model, 1, lastPredict)
+                    future_predictions.append(yhat)
+                    lastPredict = convertDimension(np.array([[yhat]]))
                 
-                # Walk-forward validation
-                predictions = list()
-                tmpPredictions = list()
-                for i in range(len(train_scaled)):
-                    X, y = train_scaled[i, 0:-1], train_scaled[i, -1]
-                    yhat = forecast_lstm(lstm_model, 1, X)
-                    tmpPredictions.append(yhat)
-                    yhat = invert_scale(scaler, X, yhat)
-                    yhat = inverse_difference(raw_values, yhat, len(train_scaled) + 1 - i)
-                    
-                    # Ensure yhat is a scalar
-                    yhat = yhat if np.issubdtype(type(yhat), np.number) else yhat.item()
-                    
-                    predictions.append(yhat)
-                
-                # Flatten raw values and predictions
-                raw_values_flat = raw_values.flatten()
-                predictions_flat = np.array(predictions).flatten()
-                
-                # Determine the minimum length for RMSE calculation
-                min_length = min(len(raw_values_flat), len(predictions_flat))
-                
-                # Subset the values to ensure they have the same length
-                raw_values_subset = raw_values_flat[:min_length]
-                predictions_subset = predictions_flat[:min_length]
-                
-                # Report performance
-                rmse = sqrt(mean_squared_error(raw_values_subset, predictions_subset))
-                st.write(f'Test RMSE: {rmse:.3f}')
-                
-                # Create a DataFrame to hold actual and predicted values
-                results_df = pd.DataFrame({
-                    'Actual': raw_values_flat[:len(predictions)],
-                    'Predicted': predictions_flat
+                # Inverse scaling and differencing
+                future_predictions_inverted = []
+                for i in range(len(future_predictions)):
+                    tmp_result = invert_scale(scaler, [0], future_predictions[i])
+                    tmp_result = inverse_difference(raw_values, tmp_result, len(future_predictions) + 1 - i)
+                    future_predictions_inverted.append(tmp_result)
+    
+                # Create a DataFrame for future predictions
+                future_index = np.arange(len(raw_values), len(raw_values) + future_months)
+                future_df = pd.DataFrame({
+                    'Month': future_index,
+                    'Future Prediction': future_predictions_inverted
                 })
-                
-                # Display the DataFrame
-                st.subheader("Forecast Results")
-                st.dataframe(results_df)
+    
+                # Display the future predictions DataFrame
+                st.subheader("Future Predictions")
+                st.dataframe(future_df)
     
                 # Plotting
                 plt.figure(figsize=(15, 7))
                 plt.plot(raw_values, label="Actual data")
-                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
+                plt.plot(np.arange(len(raw_values), len(raw_values) + future_months), future_predictions_inverted, label="Future Predictions", linestyle="--", color="red")
                 plt.xlabel("Month")
                 plt.ylabel("Case")
-                plt.title("Actual Data vs. Predictions")
-                plt.legend()
-                st.pyplot(plt)
-                
-                # Prepare future predictions
-                lastPredict = tmpPredictions[-1:]
-                lastPredict = toOneDimension(lastPredict)
-                lastPredict = convertDimension(lastPredict)
-            
-                futureMonth = 6  # Predict for 6 months
-            
-                futureArray = []
-                for i in range(futureMonth):
-                    lastPredict = lstm_model.predict(lastPredict)
-                    futureArray.append(lastPredict)
-                    lastPredict = convertDimension(lastPredict)
-            
-                # Before denormalize
-                newFutureData = np.reshape(futureArray, (-1, 1))
-                newFuture = np.reshape(newFutureData, (-1, 1))
-            
-                dataHasilPrediksi = []
-                for i in range(len(newFutureData)):
-                    tmpResult = invert_scale(scaler, [0], newFutureData[i])
-                    tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
-                    dataHasilPrediksi.append(tmpResult)
-            
-                # Plot future predictions
-                plt.figure(figsize=(15, 7))
-                plt.plot(raw_values, label="Actual data")
-                plt.plot(np.arange(len(predictions)), predictions, label="Predicted data", linestyle="--")
-                future_index = np.arange(len(predictions), len(predictions) + len(dataHasilPrediksi))
-                plt.plot(future_index, dataHasilPrediksi, label="Future Predictions", linestyle="--", color="red")
-                plt.xlabel("Month")
-                plt.ylabel("Case")
-                plt.title("Actual Data, Predictions, and Future Predictions")
+                plt.title("Actual Data and Future Predictions")
                 plt.legend()
                 st.pyplot(plt)
             
@@ -256,4 +205,5 @@ if uploaded_file is not None:
                 st.write("Failed to load model.")
         else:
             st.write("Model not available.")
+
 
