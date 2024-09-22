@@ -148,7 +148,7 @@ if uploaded_file is not None:
 
     elif selection == "Forecast":
         st.subheader("Forecasting")
-
+    
         if 'model_trained' in st.session_state and st.session_state.model_trained:
             if st.session_state.model is None:
                 st.session_state.model = load_model(st.session_state.model_file_path)
@@ -175,14 +175,14 @@ if uploaded_file is not None:
                     yhat = forecast_lstm(lstm_model, 1, X)
                     tmpPredictions.append(yhat)
                     yhat = invert_scale(scaler, X, yhat)
-                    yhat = inverse_difference(raw_values, yhat, len(train_scaled)+1-i)
+                    yhat = inverse_difference(raw_values, yhat, len(train_scaled) + 1 - i)
                     
                     # Ensure yhat is a scalar
                     yhat = yhat if np.issubdtype(type(yhat), np.number) else yhat.item()
                     
                     predictions.append(yhat)
                 
-               # Flatten raw values and predictions
+                # Flatten raw values and predictions
                 raw_values_flat = raw_values.flatten()
                 predictions_flat = np.array(predictions).flatten()
                 
@@ -196,8 +196,17 @@ if uploaded_file is not None:
                 # Report performance
                 rmse = sqrt(mean_squared_error(raw_values_subset, predictions_subset))
                 st.write(f'Test RMSE: {rmse:.3f}')
-
                 
+                # Create a DataFrame to hold actual and predicted values
+                results_df = pd.DataFrame({
+                    'Actual': raw_values_flat[:len(predictions)],
+                    'Predicted': predictions_flat
+                })
+                
+                # Display the DataFrame
+                st.subheader("Forecast Results")
+                st.dataframe(results_df)
+    
                 # Plotting
                 plt.figure(figsize=(15, 7))
                 plt.plot(raw_values, label="Actual data")
@@ -247,3 +256,4 @@ if uploaded_file is not None:
                 st.write("Failed to load model.")
         else:
             st.write("Model not available.")
+
