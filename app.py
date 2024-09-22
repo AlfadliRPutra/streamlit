@@ -189,11 +189,11 @@ if uploaded_file is not None:
                         lastPredict = convertDimension(np.array([[yhat]]))
                 
                     # Membalikkan skala dan selisih untuk mendapatkan prediksi yang sebenarnya
-                    future_predictions_inverted = []
                     for i in range(len(future_predictions)):
                         tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
-                        tmp_result = inverse_difference(raw_values, tmp_result, interval=1)
-                        future_predictions_inverted.append(tmp_result)
+                        tmp_result = inverse_difference(raw_values, tmp_result, i + 1)  # Mengubah urutan penambahan
+                        future_predictions_inverted.append(tmp_result)  # Ditambahkan secara normal
+
                 
                     # *** MEMBALIK URUTAN PREDIKSI ***
                     future_predictions_inverted.reverse()
