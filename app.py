@@ -140,7 +140,7 @@ if uploaded_file is not None:
         st.line_chart(st.session_state.data)
 
     elif selection == "Forecast":
-    st.subheader("Forecasting")
+        st.subheader("Forecasting")
 
         if 'model_trained' in st.session_state and st.session_state.model_trained:
             if st.session_state.model is None:
