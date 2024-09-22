@@ -178,7 +178,7 @@ if uploaded_file is not None:
             future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
             future_df = pd.DataFrame({
                 'Tanggal': future_index,
-                'Prediksi Masa Depan': future_predictions_inverted
+                'Prediksi': future_predictions_inverted
             }).set_index('Tanggal')
     
             # Menampilkan DataFrame prediksi masa depan
@@ -188,7 +188,7 @@ if uploaded_file is not None:
             # Grafik
             plt.figure(figsize=(15, 7))
             plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
-            plt.plot(future_df.index, future_predictions_inverted, label="Hasil Predikais", linestyle="--", color="red")
+            plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
             plt.xlabel("Tanggal")
             plt.ylabel("Tingkat PM10")
             plt.title("Tingkat PM10 dan Hasil Prediksi")
