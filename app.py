@@ -162,7 +162,7 @@ if uploaded_file is not None:
             train_scaled = st.session_state.scaler.transform(train)
             test_scaled = st.session_state.scaler.transform(test)
 
-            # Make predictions
+            # Make predictions on test data
             predictions = []
             for i in range(len(test_scaled)):
                 X, y = test_scaled[i, 0:-1], test_scaled[i, -1]
@@ -170,7 +170,7 @@ if uploaded_file is not None:
                 yhat_inverted = invert_scale(st.session_state.scaler, X, yhat)
                 yhat_inverted = inverse_difference(raw_values, yhat_inverted, len(test_scaled) + 1 - i)
                 predictions.append(yhat_inverted)
-    
+
             # Calculate RMSE and MAPE
             actual_test_values = raw_values[split_index + 1:].flatten()
             rmse = calculate_rmse(actual_test_values, predictions)
