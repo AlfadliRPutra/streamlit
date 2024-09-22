@@ -157,70 +157,54 @@ if uploaded_file is not None:
             # GUI untuk memilih jumlah hari untuk prediksi, tanpa nilai default
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
-            # Periksa apakah pengguna telah memilih jumlah hari
             if future_days > 0:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
             
-                # Memastikan model telah dilatih sebelum memulai peramalan
-                # Memastikan model telah dilatih sebelum memulai peramalan
                 if st.session_state.model_trained:
                     lstm_model = load_model(model_file_path)
-                    
-                    # Ambil data PM10 terakhir
                     raw_values = st.session_state.data['PM10'].values.reshape(-1, 1)
-                    
-                    # Menghitung perbedaan
                     diff_values = difference(raw_values, 1)
                     supervised = timeseries_to_supervised(diff_values, 1)
                     supervised_values = supervised.values
                     train = supervised_values[0:]
-                    
-                    # Melakukan scaling pada data
                     train_scaled = st.session_state.scaler.transform(train)
-                
-                    # Mulai dari prediksi terakhir
+            
+                    # Menyiapkan prediksi masa depan
                     lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
                     future_predictions = []
-                
-                    # Perulangan untuk memprediksi jumlah hari yang diinginkan
+            
                     for _ in range(future_days):
                         yhat = forecast_lstm(lstm_model, 1, lastPredict)
                         future_predictions.append(yhat)
                         lastPredict = convertDimension(np.array([[yhat]]))
-                
-                    # Membalikkan skala dan selisih untuk mendapatkan prediksi yang sebenarnya
+            
+                    # Membalikkan skala dan selisih (urutan yang benar)
+                    future_predictions_inverted = []
                     for i in range(len(future_predictions)):
                         tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
-                        tmp_result = inverse_difference(raw_values, tmp_result, i + 1)  # Mengubah urutan penambahan
-                        future_predictions_inverted.append(tmp_result)  # Ditambahkan secara normal
-
-                
-                    # *** MEMBALIK URUTAN PREDIKSI ***
-                    future_predictions_inverted.reverse()
-                
-                    # Membuat index dari tanggal terakhir dataset ke jumlah hari masa depan
+                        tmp_result = inverse_difference(raw_values, tmp_result, i + 1)  # Perbaikan urutan
+                        future_predictions_inverted.append(tmp_result)
+            
+                    # Membuat DataFrame untuk prediksi masa depan
                     last_date = st.session_state.data.index[-1]  # Mendapatkan tanggal terakhir dari dataset
                     future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
-                    
-                    # Membuat DataFrame untuk prediksi masa depan
                     future_df = pd.DataFrame({
                         'Tanggal': future_index,
                         'Prediksi': future_predictions_inverted
                     }).set_index('Tanggal')
-                
+            
                     # Menampilkan DataFrame prediksi masa depan
-                    st.subheader("Hasil Peramalan")
+                    st.subheader("Forecast")
                     st.dataframe(future_df)
-                
-                    # Plotting hasil prediksi bersama data asli
+            
+                    # Grafik
                     plt.figure(figsize=(15, 7))
-                    plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10 Asli")
-                    plt.plot(future_df.index, future_df['Prediksi'], label="Prediksi Masa Depan", linestyle="--", color="red")
+                    plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
+                    plt.plot(future_df.index, future_predictions_inverted, label="Hasil Prediksi", linestyle="--", color="red")
                     plt.xlabel("Tanggal")
                     plt.ylabel("Tingkat PM10")
-                    plt.title("Tingkat PM10 Asli dan Prediksi Masa Depan")
+                    plt.title("Tingkat PM10 dan Hasil Prediksi")
                     plt.legend()
                     st.pyplot(plt)
                 else:
                     st.write("Model tidak tersedia.")
-
