@@ -241,8 +241,12 @@ if uploaded_file is not None:
                 future_predictions_inverted = []
                 for i in range(len(all_predictions)):
                     tmp_result = invert_scale(st.session_state.scaler, [0], all_predictions[i])
-                    tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
-                    future_predictions_inverted.append(tmp_result)
+                    if i == 0:
+                        # Untuk prediksi pertama, gunakan nilai terakhir dari raw_values
+                        inverted_value = inverse_difference(raw_values, tmp_result, 1)
+                    else:
+                        inverted_value = inverse_difference(future_predictions_inverted, tmp_result, 1)
+                    future_predictions_inverted.append(inverted_value)
             
                 # Membuat DataFrame untuk semua prediksi
                 last_date = st.session_state.data.index[-1]
