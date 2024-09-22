@@ -144,7 +144,7 @@ if uploaded_file is not None:
 
     elif selection == "Forecast":
         st.subheader("Forecasting")
-    
+        
         if st.session_state.model_trained:
             lstm_model = load_model(model_file_path)
             raw_values = st.session_state.data['PM10'].values.reshape(-1, 1)
@@ -158,33 +158,34 @@ if uploaded_file is not None:
             lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
             future_days = 7  # Predict for the next 7 days
             future_predictions = []
-
+    
             for _ in range(future_days):
                 yhat = forecast_lstm(lstm_model, 1, lastPredict)
                 future_predictions.append(yhat)
                 lastPredict = convertDimension(np.array([[yhat]]))
-                
+            
             # Inverse scaling and differencing
             future_predictions_inverted = []
             for i in range(len(future_predictions)):
                 tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
                 tmp_result = inverse_difference(raw_values, tmp_result, len(future_predictions) + 1 - i)
                 future_predictions_inverted.append(tmp_result)
-
+    
             # Create a DataFrame for future predictions
-            future_index = pd.date_range(start=series.index[-1] + pd.DateOffset(days=1), periods=future_days, freq='D')
+            last_date = st.session_state.data.index[-1]  # Get the last date from the dataset
+            future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
             future_df = pd.DataFrame({
                 'Date': future_index,
                 'Future Prediction': future_predictions_inverted
             }).set_index('Date')
-
+    
             # Display the future predictions DataFrame
             st.subheader("Future Predictions")
             st.dataframe(future_df)
-
+    
             # Plotting
             plt.figure(figsize=(15, 7))
-            plt.plot(series.index, series['PM10'], label="Actual PM10 Levels")
+            plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Actual PM10 Levels")
             plt.plot(future_df.index, future_predictions_inverted, label="Future Predictions", linestyle="--", color="red")
             plt.xlabel("Date")
             plt.ylabel("PM10 Levels")
@@ -193,3 +194,4 @@ if uploaded_file is not None:
             st.pyplot(plt)
         else:
             st.write("Model not available.")
+
