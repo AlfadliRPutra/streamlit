@@ -137,7 +137,7 @@ if uploaded_file is not None:
 
     if selection == "Dataset":
         st.subheader("Tabel")
-        st.write(st.session_state.data.head(20))
+        st.write(st.session_state.data)
 
         st.subheader("Visualisasi data")
         st.line_chart(st.session_state.data['PM10'])
