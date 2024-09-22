@@ -149,8 +149,17 @@ if uploaded_file is not None:
         st.subheader("Dataset Overview")
         st.write(st.session_state.raw_data.head(20))  # Tampilkan data asli
         
-        st.subheader("Line Chart of Dataset")
-        st.line_chart(st.session_state.raw_data)  # Tampilkan grafik dari data asli
+        st.subheader("Line Chart of PM10")
+        
+        # Pastikan kolom tanggal diubah menjadi datetime
+        st.session_state.raw_data.iloc[:, 0] = pd.to_datetime(st.session_state.raw_data.iloc[:, 0])
+        
+        # Set kolom tanggal sebagai indeks
+        st.session_state.raw_data.set_index(st.session_state.raw_data.columns[0], inplace=True)
+        
+        # Tampilkan grafik dengan tanggal sebagai indeks
+        st.line_chart(st.session_state.raw_data.iloc[:, 1])  # Kolom kedua untuk PM10
+
 
     elif selection == "Forecast":
         st.subheader("Forecasting")
