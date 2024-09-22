@@ -221,11 +221,7 @@ if uploaded_file is not None:
             st.pyplot(plt)
     
             # GUI untuk memilih jumlah hari untuk prediksi
-            # GUI untuk memilih jumlah hari untuk prediksi
-            # GUI untuk memilih jumlah hari untuk prediksi
-            # ... Kode sebelumnya tetap
-
-            # GUI untuk memilih jumlah hari untuk prediksi
+           # GUI untuk memilih jumlah hari untuk prediksi
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
             
             if future_days > 0:
@@ -233,21 +229,22 @@ if uploaded_file is not None:
             
                 # Menyiapkan prediksi masa depan
                 lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
-                future_predictions = []
+                all_predictions = []
             
-                for _ in range(future_days):
+                # Melakukan prediksi untuk semua hari yang diminta
+                for i in range(future_days):
                     yhat = forecast_lstm(lstm_model, 1, lastPredict)
-                    future_predictions.append(yhat)
+                    all_predictions.append(yhat)
                     lastPredict = convertDimension(np.array([[yhat]]))
             
-                # Membalikkan skala dan selisih untuk prediksi masa depan
+                # Membalikkan skala dan selisih untuk semua prediksi masa depan
                 future_predictions_inverted = []
-                for i in range(len(future_predictions)):
-                    tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
+                for i in range(len(all_predictions)):
+                    tmp_result = invert_scale(st.session_state.scaler, [0], all_predictions[i])
                     tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
                     future_predictions_inverted.append(tmp_result)
             
-                # Membuat DataFrame untuk prediksi masa depan
+                # Membuat DataFrame untuk semua prediksi
                 last_date = st.session_state.data.index[-1]
                 future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
                 future_df = pd.DataFrame({
@@ -255,8 +252,12 @@ if uploaded_file is not None:
                     'Prediksi': future_predictions_inverted
                 }).set_index('Tanggal')
             
-                # Menggabungkan data asli dan prediksi masa depan
+                # Menggabungkan data asli dan semua prediksi
                 combined_df = pd.concat([st.session_state.data, future_df], axis=0)
+            
+                # Menampilkan semua prediksi dari hari pertama hingga hari yang dimasukkan
+                st.subheader("Hasil Prediksi")
+                st.dataframe(combined_df)
             
                 # Plot gabungan data aktual dan prediksi
                 plt.figure(figsize=(15, 7))
@@ -275,4 +276,3 @@ if uploaded_file is not None:
                 # Menampilkan DataFrame prediksi masa depan
                 st.subheader("Prediksi Masa Depan")
                 st.dataframe(future_df)
-
