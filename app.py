@@ -95,7 +95,7 @@ def load_model(model_file_path):
 st.title("Time Series Forecasting with LSTM")
 
 # Handle file upload
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx", "xls"])
 
 if uploaded_file is not None:
 
@@ -111,8 +111,15 @@ if uploaded_file is not None:
 
     if not st.session_state.model_trained:
         with st.spinner("Processing and training the model..."):
-            # Load and process the data
-            series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
+            # Determine the file extension and load the data accordingly
+            file_extension = uploaded_file.name.split('.')[-1]
+
+            if file_extension == 'csv':
+                # Load CSV data
+                series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
+            elif file_extension in ['xlsx', 'xls']:
+                # Load Excel data
+                series = pd.read_excel(uploaded_file, usecols=[0])
             raw_values = series.values
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
