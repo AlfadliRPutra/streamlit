@@ -12,7 +12,7 @@ import os
 # Function to convert time series to supervised learning
 def timeseries_to_supervised(data, lag=1):
     df = DataFrame(data)
-    columns = [df.shift(i) for i in range(1, lag+1)]
+    columns = [df.shift(i) for i in range(1, lag + 1)]
     columns.append(df)
     df = concat(columns, axis=1)
     df.fillna(0, inplace=True)
@@ -65,10 +65,6 @@ def forecast_lstm(model, batch_size, X):
     X = X.reshape(1, 1, len(X))
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0, 0]
-
-# Function to convert to one dimension
-def toOneDimension(value):
-    return np.asarray(value)
 
 # Function to convert dimensions for LSTM
 def convertDimension(value):
@@ -133,6 +129,7 @@ if uploaded_file is not None:
 
             # Update session state
             st.session_state.data = series
+            st.session_state.scaler = scaler  # Ensure scaler is saved
             st.session_state.model_trained = True
 
     st.sidebar.header("Navigation")
@@ -159,10 +156,10 @@ if uploaded_file is not None:
             
             # Prepare future predictions
             lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
-            future_months = 6  # Predict for 6 months
+            future_days = 7  # Predict for the next 7 days
             future_predictions = []
 
-            for _ in range(future_months):
+            for _ in range(future_days):
                 yhat = forecast_lstm(lstm_model, 1, lastPredict)
                 future_predictions.append(yhat)
                 lastPredict = convertDimension(np.array([[yhat]]))
@@ -175,11 +172,11 @@ if uploaded_file is not None:
                 future_predictions_inverted.append(tmp_result)
 
             # Create a DataFrame for future predictions
-            future_index = pd.date_range(start=series.index[-1] + pd.DateOffset(months=1), periods=future_months, freq='M')
+            future_index = pd.date_range(start=series.index[-1] + pd.DateOffset(days=1), periods=future_days, freq='D')
             future_df = pd.DataFrame({
-                'Month': future_index,
+                'Date': future_index,
                 'Future Prediction': future_predictions_inverted
-            }).set_index('Month')
+            }).set_index('Date')
 
             # Display the future predictions DataFrame
             st.subheader("Future Predictions")
