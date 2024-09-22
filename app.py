@@ -162,6 +162,7 @@ if uploaded_file is not None:
                 st.subheader(f"Peramalan untuk {future_days} hari ke depan")
             
                 # Memastikan model telah dilatih sebelum memulai peramalan
+                # Memastikan model telah dilatih sebelum memulai peramalan
                 if st.session_state.model_trained:
                     lstm_model = load_model(model_file_path)
                     
@@ -191,9 +192,11 @@ if uploaded_file is not None:
                     future_predictions_inverted = []
                     for i in range(len(future_predictions)):
                         tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
-                        # Urutkan prediksi sehingga hasilnya ditambahkan setelah data terakhir
                         tmp_result = inverse_difference(raw_values, tmp_result, interval=1)
                         future_predictions_inverted.append(tmp_result)
+                
+                    # *** MEMBALIK URUTAN PREDIKSI ***
+                    future_predictions_inverted.reverse()
                 
                     # Membuat index dari tanggal terakhir dataset ke jumlah hari masa depan
                     last_date = st.session_state.data.index[-1]  # Mendapatkan tanggal terakhir dari dataset
@@ -220,3 +223,4 @@ if uploaded_file is not None:
                     st.pyplot(plt)
                 else:
                     st.write("Model tidak tersedia.")
+
