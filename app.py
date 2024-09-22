@@ -119,7 +119,7 @@ if uploaded_file is not None:
                 series = pd.read_csv(uploaded_file, usecols=[0], engine='python')
             elif file_extension in ['xlsx', 'xls']:
                 # Load Excel data from column B (index 1)
-                series = pd.read_excel(uploaded_file, usecols=[1])
+                series = pd.read_excel(uploaded_file, usecols=[1], header=0)
             raw_values = series.values
             diff_values = difference(raw_values, 1)
             supervised = timeseries_to_supervised(diff_values, 1)
