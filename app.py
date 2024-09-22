@@ -201,6 +201,7 @@ if uploaded_file is not None:
             plt.legend()
             st.pyplot(plt)
 
+            st.subheader("Peramalan")
             # Input for future predictions
             future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
 
