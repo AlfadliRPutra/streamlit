@@ -85,7 +85,7 @@ def load_model(model_file_path):
         return None
 
 # Aplikasi Streamlit
-st.title("Peramalan Deret Waktu dengan LSTM")
+st.title("Aplikasi Peramalan")
 
 # Menangani unggahan file
 uploaded_file = st.sidebar.file_uploader("Unggah file CSV atau Excel Anda", type=["csv", "xlsx", "xls"])
@@ -136,10 +136,10 @@ if uploaded_file is not None:
     selection = st.sidebar.radio("Pilih Tampilan", ["Dataset", "Peramalan"])
 
     if selection == "Dataset":
-        st.subheader("Gambaran Dataset")
+        st.subheader("Tabel")
         st.write(st.session_state.data.head(20))
 
-        st.subheader("Grafik Garis Tingkat PM10")
+        st.subheader("Visualisasi data")
         st.line_chart(st.session_state.data['PM10'])
 
     elif selection == "Peramalan":
@@ -182,16 +182,16 @@ if uploaded_file is not None:
             }).set_index('Tanggal')
     
             # Menampilkan DataFrame prediksi masa depan
-            st.subheader("Prediksi Masa Depan")
+            st.subheader("Forecast")
             st.dataframe(future_df)
     
             # Grafik
             plt.figure(figsize=(15, 7))
-            plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10 Aktual")
-            plt.plot(future_df.index, future_predictions_inverted, label="Prediksi Masa Depan", linestyle="--", color="red")
+            plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Tingkat PM10")
+            plt.plot(future_df.index, future_predictions_inverted, label="Hasil Predikais", linestyle="--", color="red")
             plt.xlabel("Tanggal")
             plt.ylabel("Tingkat PM10")
-            plt.title("Tingkat PM10 Aktual dan Prediksi Masa Depan")
+            plt.title("Tingkat PM10 dan Hasil Prediksi")
             plt.legend()
             st.pyplot(plt)
         else:
