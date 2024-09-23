@@ -66,6 +66,13 @@ def forecast_lstm(model, batch_size, X):
     X = X.reshape(1, 1, len(X))
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0, 0]
+#Convert list to one dimension array
+def toOneDimension(value):
+    return np.asarray(value)
+
+#Convert to multi dimension array
+def convertDimension(value):
+    return (np.reshape(lastPredict, (lastPredict.shape[0], 1, lastPredict.shape[0])))
 
 # Convert dimensions
 def convertDimension(value):
