@@ -138,114 +138,97 @@ if uploaded_file is not None:
     
         st.subheader("Visualisasi data")
         plt.figure(figsize=(10, 6))
-        plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Konsentrasi PM10", color="blue")
-        plt.xlabel("Tanggal")
-        plt.ylabel("Konsentrasi PM10")
-        plt.title("Visualisasi Konsentrasi PM10 dari Dataset")
-        plt.xticks(rotation=45)
-        plt.grid(True)
+        plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label='PM10')
+        plt.xlabel('Tanggal')
+        plt.ylabel('Konsentrasi PM10')
+        plt.title('Visualisasi Data PM10')
+        plt.legend()
         st.pyplot(plt)
 
-    if selection == "Peramalan":
+    elif selection == "Peramalan":
         st.subheader("Peramalan")
-        
+
         if st.session_state.model_trained:
             lstm_model = load_model(model_file_path)
             raw_values = st.session_state.data['PM10'].values.reshape(-1, 1)
-            diff_values = difference(raw_values, 1)
-            supervised = timeseries_to_supervised(diff_values, 1)
-            supervised_values = supervised.values
-            
-            # Split data
-            split_index = int(0.8 * len(supervised_values))
-            train, test = supervised_values[:split_index], supervised_values[split_index:]
-            train_scaled = st.session_state.scaler.transform(train)
-            test_scaled = st.session_state.scaler.transform(test)
 
-            # Make predictions on test data
-            predictions = []
-            for i in range(len(test_scaled)):
-                X, y = test_scaled[i, 0:-1], test_scaled[i, -1]
-                yhat = forecast_lstm(lstm_model, 1, X)
-                yhat_inverted = invert_scale(st.session_state.scaler, X, yhat)
-                yhat_inverted = inverse_difference(raw_values, yhat_inverted, len(test_scaled) + 1 - i)
-                predictions.append(yhat_inverted)
+            # Prepare last prediction
+            lastPredict = raw_values[-1:]
+            lastPredict = toOneDimension(lastPredict)
+            lastPredict = convertDimension(lastPredict)
 
-            # Calculate RMSE and MAPE
-            actual_test_values = raw_values[split_index + 1:].flatten()
-            rmse = calculate_rmse(actual_test_values, predictions)
-            mape = calculate_mape(actual_test_values, predictions)
-
-            # Display metrics
-            st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.3f}")
-            st.write(f"**Mean Absolute Percentage Error (MAPE):** {mape:.2f}%")
-            
-            # DataFrame for actual vs predicted
-            test_dates = st.session_state.data.index[split_index + 1:]
-            result_df = pd.DataFrame({
-                'Tanggal': test_dates,
-                'Aktual': actual_test_values,
-                'Prediksi': np.round(np.array(predictions).flatten())  # Ensure predictions are flattened
-            }).set_index('Tanggal')
-    
-            st.subheader("Tabel Data Aktual vs Prediksi")
-            st.dataframe(result_df)
-    
-            # Plot predictions vs actual
-            plt.figure(figsize=(15, 7))
-            plt.plot(test_dates, actual_test_values, label="Aktual PM10")
-            plt.plot(test_dates, predictions, label="Prediksi PM10", linestyle="--", color="red")
-            plt.xlabel("Tanggal")
-            plt.ylabel("Konsentrasi PM10")
-            plt.title("Hasil Prediksi vs Aktual pada Data Testing")
-            plt.legend()
-            st.pyplot(plt)
-
-            st.subheader("Peramalan")
             # Input for future predictions
-            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=0, max_value=300)
+            future_days = st.number_input("Pilih jumlah hari untuk diprediksi:", min_value=1, max_value=300)
 
             if future_days > 0:
-                st.subheader(f"Peramalan untuk {future_days} hari ke depan")
-                lastPredict = train_scaled[-1, 0].reshape(1, 1, 1)
-                future_predictions = []
-
+                futureArray = []
                 for _ in range(future_days):
-                    yhat = forecast_lstm(lstm_model, 1, lastPredict)
-                    future_predictions.append(yhat)
-                    lastPredict = convertDimension(np.array([[yhat]]))
+                    lastPredict = lstm_model.predict(lastPredict)
+                    futureArray.append(lastPredict)
+                    lastPredict = convertDimension(lastPredict)
 
-                # Invert scaling and differencing for future predictions
-                future_predictions_inverted = []
-                for i in range(len(future_predictions)):
-                    tmp_result = invert_scale(st.session_state.scaler, [0], future_predictions[i])
-                    tmp_result = inverse_difference(raw_values, tmp_result, i + 1)
-                    future_predictions_inverted.append(tmp_result)
+                # Before denormalize
+                newFutureData = np.reshape(futureArray, (-1, 1))
+                dataHasilPrediksi = []
 
-                # Flatten future_predictions_inverted before creating the DataFrame
-                future_predictions_inverted = np.array(future_predictions_inverted).flatten()
-                
-                # Create DataFrame for future predictions
+                for i in range(len(newFutureData)):
+                    tmpResult = invert_scale(st.session_state.scaler, raw_values[-1], newFutureData[i])
+                    tmpResult = inverse_difference(raw_values, tmpResult, len(newFutureData) + 1 - i)
+                    dataHasilPrediksi.append(tmpResult)
+
+                # Create future dates
                 last_date = st.session_state.data.index[-1]
-                future_index = pd.date_range(start=last_date + pd.DateOffset(days=1), periods=future_days, freq='D')
-                
-                future_df = pd.DataFrame({
-                    'Tanggal': future_index,
-                    'Prediksi': np.round(future_predictions_inverted)  # Ensure predictions are rounded and flattened
+                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=future_days)
+
+                # Create DataFrame for future predictions
+                df_future = pd.DataFrame({
+                    'Tanggal': future_dates,
+                    'Future Predictions': np.round(dataHasilPrediksi)
                 }).set_index('Tanggal')
 
+                # Create a DataFrame for actual data
+                df_actual = pd.DataFrame(st.session_state.data['PM10'])
+
+                # Create testing predictions DataFrame (assuming newTestingLine is prepared)
+                # Replace this with your actual testing predictions logic
+                newTestingLine = []  # This should be defined based on your previous model evaluation
+                len_testing_line = len(newTestingLine)
+                if len_testing_line > 0:
+                    testing_index = df_actual.index[-len_testing_line:]
+                    shifted_testing_index = testing_index.insert(0, testing_index[0] - pd.Timedelta(days=1)).drop(testing_index[-1])
+                    df_testing = pd.DataFrame({
+                        'Tanggal': shifted_testing_index,
+                        'Testing Predictions': newTestingLine[-len_testing_line:]
+                    }).set_index('Tanggal')
+                else:
+                    raise ValueError("No predictions available in newTestingLine")
+
+                # Plot actual, testing, and future data
+                plt.figure(figsize=(15, 10))
+
+                # Plot actual data
+                plt.plot(df_actual.index, df_actual['PM10'], label='Actual Data', color='blue')
+
+                # Plot testing predictions
+                plt.plot(df_testing.index, df_testing['Testing Predictions'], label='Testing Predictions', linestyle='--', color='orange')
+
+                # Plot future predictions
+                plt.plot(df_future.index, df_future['Future Predictions'], label='Future Predictions', linestyle='--', color='red')
+
+                # Auto-format dates
+                plt.gcf().autofmt_xdate()
+
+                # Add labels and title
+                plt.xlabel("Tanggal")
+                plt.ylabel("PM10")
+                plt.title("Actual Data vs Testing Predictions vs Future Predictions")
+
+                # Show legend
+                plt.legend()
+
+                # Show plot
+                st.pyplot(plt)
 
                 # Display future predictions table
                 st.subheader("Tabel Prediksi")
-                st.dataframe(future_df)
-
-                # Plot future predictions
-                plt.figure(figsize=(15, 7))
-                plt.plot(st.session_state.data.index, st.session_state.data['PM10'], label="Data Asli PM10")
-                plt.plot(future_df.index, future_predictions_inverted, label="Prediksi LSTM", linestyle="--", color="red")
-                plt.axvline(x=last_date, color='blue', linestyle='--', label="Batas Data Asli")
-                plt.xlabel("Tanggal")
-                plt.ylabel("Konsentrasi PM10")
-                plt.title(f"Konsentrasi PM10 dan Prediksi LSTM untuk {future_days} Hari ke Depan")
-                plt.legend()
-                st.pyplot(plt)
+                st.dataframe(df_future)
